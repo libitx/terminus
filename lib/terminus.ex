@@ -3,7 +3,10 @@ defmodule Terminus do
   Documentation for `Terminus`.
   """
 
-  @token "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiIxOVp2eUtHNWNOdDJiZHVLSDRjclp6Sm5lZkJYcmJLaGIyIiwiaXNzdWVyIjoiZ2VuZXJpYy1iaXRhdXRoIn0.SDk2Yit5R1dqeXc0WklHZlNDd1NwUmloM2tNRUVtRnRGZld4ZWhBRVhjWnhmWkMzR1RmanpkdEVnNWJ1VEk0cm92NFROMk5CYkl2UnlmR1lBSFYzRlYwPQ"
+  @typedoc "On-data callback function."
+  @type callback :: function
+
+  @token ".eyJzdWIiOiIxOVp2eUtHNWNOdDJiZHVLSDRjclp6Sm5lZkJYcmJLaGIyIiwiaXNzdWVyIjoiZ2VuZXJpYy1iaXRhdXRoIn0.SDk2Yit5R1dqeXc0WklHZlNDd1NwUmloM2tNRUVtRnRGZld4ZWhBRVhjWnhmWkMzR1RmanpkdEVnNWJ1VEk0cm92NFROMk5CYkl2UnlmR1lBSFYzRlYwPQ"
   @query_a %{
     q: %{
       find: %{
@@ -82,4 +85,11 @@ end
 defmodule Terminus.Response do
   @moduledoc false
   defstruct status: nil, headers: []
+end
+
+defmodule Terminus.HTTPError do
+  @moduledoc false
+  defexception [:status]
+  def message(exception),
+    do: "HTTP Error: #{:httpd_util.reason_phrase(exception.status)}"
 end

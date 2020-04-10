@@ -4,8 +4,8 @@ defmodule Terminus.HTTPStage do
   """
   use GenStage
   alias Mint.HTTP
-  alias Terminus.Message
   alias Terminus.Response
+  alias Terminus.HTTPError
   require Logger
   
   
@@ -23,8 +23,13 @@ defmodule Terminus.HTTPStage do
   @doc """
   TODO
   """
-  def connect(scheme, host, port) do
-    GenStage.start_link(__MODULE__, {scheme, host, port})
+  def connect(scheme, host, port, opts \\ []) do
+    case Keyword.get(opts, :linked_stage) do
+      true ->
+        GenStage.start_link(__MODULE__, {scheme, host, port})
+      _ ->
+        GenStage.start(__MODULE__, {scheme, host, port})
+    end
   end
 
 
@@ -40,7 +45,7 @@ defmodule Terminus.HTTPStage do
 
   @impl true
   def init({scheme, host, port}) do
-    case Mint.HTTP.connect(scheme, host, port) do
+    case HTTP.connect(scheme, host, port) do
       {:ok, conn} ->
         state = %__MODULE__{conn: conn}
         {:producer, state}
@@ -53,7 +58,7 @@ defmodule Terminus.HTTPStage do
 
   @impl true
   def handle_cast({:request, method, path, headers, body}, state) do
-    case Mint.HTTP.request(state.conn, method, path, headers, body) do
+    case HTTP.request(state.conn, method, path, headers, body) do
       {:ok, conn, request_ref} ->
         state = Map.merge(state, %{
           conn: conn,
@@ -81,12 +86,15 @@ defmodule Terminus.HTTPStage do
 
   @impl true
   def handle_info(_message, %__MODULE__{last_resp: :done} = state) do
-    {:stop, :normal, state}
+    if state.response.status in 200..299 do
+      {:stop, :normal, state}
+    else
+      {:stop, %HTTPError{status: state.response.status}, state}
+    end
   end
 
   def handle_info(message, state) do
-    # TODO We should handle the error case here as well, but we're omitting it for brevity.
-    case Mint.HTTP.stream(state.conn, message) do
+    case HTTP.stream(state.conn, message) do
       :unknown ->
         Logger.warn("Received unknown message: " <> inspect(message))
         {:noreply, [], state}
@@ -101,9 +109,13 @@ defmodule Terminus.HTTPStage do
         })
         {:noreply, Enum.reverse(events), state}
 
-      #{:error, conn, error} ->
-      #  state = put_in(state.conn, conn)
-      #  {:stop, error, state}
+      {:error, conn, %Mint.TransportError{reason: :closed}, _responses} ->
+        state = put_in(state.conn, conn)
+        {:stop, :normal, state}
+
+      {:error, conn, error, _responses} ->
+        state = put_in(state.conn, conn)
+        {:stop, error, state}
     end
   end
 
@@ -139,9 +151,9 @@ defmodule Terminus.HTTPStage do
 
 
   @impl true
-  def terminate(_reason, state) do
-    Logger.debug("Terminating HTTPStream GenStage")
-    Mint.HTTP.close(state.conn)
+  def terminate(reason, state) do
+    Logger.debug("Terminating HTTPStream Stage: #{inspect reason}")
+    HTTP.close(state.conn)
   end
 
 end

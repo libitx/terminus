@@ -5,6 +5,8 @@ defmodule Terminus.HTTPStream do
   alias Terminus.HTTPStage
   alias Terminus.Message
 
+  @scheme Application.get_env(:terminus, :scheme)
+  @port Application.get_env(:terminus, :port)
   @headers [
     {"content-type", "application/json"}
   ]
@@ -27,13 +29,13 @@ defmodule Terminus.HTTPStream do
   """
   def init(method, host, path, body, opts \\ []) do
     host    = Keyword.get(opts, :host, host)
-    stage   = Keyword.get(opts, :stage, false)
+    stage   = Keyword.get(opts, :linked_stage, false)
     headers = case Keyword.get(opts, :token) do
       nil -> @headers
       token -> [{"token", token} | @headers]
     end
     
-    with {:ok, pid} <- HTTPStage.connect(:https, host, 443),
+    with {:ok, pid} <- HTTPStage.connect(@scheme, host, @port, opts),
          :ok <- HTTPStage.request(pid, method, path, headers, body)
     do
       if stage,
@@ -73,9 +75,14 @@ defmodule Terminus.HTTPStream do
   """
   def handle_data(stream, nil), do: stream
   def handle_data(stream, ondata) when is_function(ondata) do
-    stream
-    |> Stream.each(ondata)
-    |> Stream.run
+    try do
+      stream
+      |> Stream.each(ondata)
+      |> Stream.run
+    catch
+      :exit, {error, _} ->
+        raise error
+    end
   end
 
 
