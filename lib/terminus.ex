@@ -1,6 +1,107 @@
 defmodule Terminus do
   @moduledoc """
-  Documentation for `Terminus`.
+  Terminus allows you to crawl and subscribe to Bitcoin transaction events using
+  [Bitbus](https://bitbus.network) and [Bitsocket](https://bitsocket.network).
+
+  > **terminus** &mdash; noun
+  > * the end of a railway or other transport route, or a station at such a point; a terminal.
+  > * a final point in space or time; an end or extremity.
+
+  Terminus provides a single unified interface for crawling and querying both
+  Bitbus and Bitsocket in a highly performant manner. It takes full advantage of
+  Elixir processes so multiple concurrent queries can be streamed to your
+  application. Terminus may well be the most powerful way of querying Bitcoin in
+  the Universe!
+
+  ## Bitbus
+
+  Bitbus is a powerful API that allows you to crawl a filtered subset of the
+  Bitcoin blockchain. Bitbus indexes blocks, thus can be used to crawl
+  **confirmed** transactions.
+
+  > We run a highly efficient bitcoin crawler which indexes the bitcoin
+  > blockchain. Then we expose the index as an API so anyone can easily crawl
+  > ONLY the subset of bitcoin by crawling bitbus.
+
+  Each returned transaction document has the following schema:
+
+      %{
+        "_id" => "...",       # Bitbus document ID
+        "blk" => %{
+          "h" => "...",       # Block hash
+          "i" => int,         # Block height
+          "t" => int,         # Block timestamp
+        },
+        "in" => [...],        # List of inputs
+        "lock" => int,        # Lock time
+        "out" => [...],       # List of outputs
+        "tx" => %{
+          "h" => "..."        # Transaction hash
+        }
+      }
+
+  Transactions inputs and outputs are represented using the [TXO schema](https://bitquery.planaria.network/#/?id=txo).
+
+  ## Bitsocket
+
+  Bitsocket sends you realtime events from the Bitcoin blockchain. It uses
+  [Server Sent Events](https://en.wikipedia.org/wiki/Server-sent_events) to
+  stream new **unconfirmed** transactions as soon as they appear on the Bitcoin
+  network.
+
+  > Bitsocket is like Websocket, but for Bitcoin. With just a single Bitsocket
+  > connection, you get access to a live, filterable stream of all transaction
+  > events across the entire bitcoin peer network.
+
+  Realtime transactions have a similar schema to Bitbus documents. However, as
+  these are unconfirmed transactions, they have no `blk` infomation and provide
+  a `timestamp` attribute reflecting when Bitsocket first saw the transaction.
+
+      %{
+        "_id" => "...",       # Bitbus document ID
+        "in" => [...],        # List of inputs
+        "lock" => int,        # Lock time
+        "out" => [...],       # List of outputs
+        "timestamp" => int,   # Timestamp of when tx seen
+        "tx" => %{
+          "h" => "..."        # Transaction hash
+        }
+      }
+
+  In slight different to Bitbus, Bitsocket offers alternative endpoints for
+  querying documents with inputs and outputs represented using either the
+  [TXO schema](https://bitquery.planaria.network/#/?id=txo) OR the
+  [BOB schema](https://bitquery.planaria.network/#/?id=bob).
+
+  ## Authentication
+
+  Both Bitbus and Bitsocket  require a token to authenticate requests. *(The Bitsocket `listen`
+  API currenrly doesn't require a token but that is likely to change).* Currently
+  tokens are free with no usage limits. *(Also likely to change)*
+
+  **[Get your Planaria Token](https://token.planaria.network).**
+
+  ## Query language
+
+  Both APIs use the same MongoDB-like query language, known as
+  [Bitquery](https://bitquery.planaria.network). This means Terminus can be used
+  to crawl both Bitbus and Bitsocket concurrently with the same query.
+
+      iex> Terminus.crawl!(%{
+      ...>   find: %{ "out.s2" => "1LtyME6b5AnMopQrBPLk4FGN8UBuhxKqrn" },
+      ...>   sort: %{ "blk.i": -1, "timestamp": -1 },
+      ...>   limit: 10
+      ...> }, token: token)
+      %{
+        "c" => [%{}, ...],
+        "u" => [%{}, ...],
+      }
+
+  ## Using Terminus
+
+
+
+
   """
 
   @typedoc "On-data callback function."
