@@ -6,7 +6,7 @@ defmodule Terminus do
   @typedoc "On-data callback function."
   @type callback :: function
 
-  @token ".eyJzdWIiOiIxOVp2eUtHNWNOdDJiZHVLSDRjclp6Sm5lZkJYcmJLaGIyIiwiaXNzdWVyIjoiZ2VuZXJpYy1iaXRhdXRoIn0.SDk2Yit5R1dqeXc0WklHZlNDd1NwUmloM2tNRUVtRnRGZld4ZWhBRVhjWnhmWkMzR1RmanpkdEVnNWJ1VEk0cm92NFROMk5CYkl2UnlmR1lBSFYzRlYwPQ"
+  @token "eyJhbGciOiJFUzI1NksiLCJ0eXAiOiJKV1QifQ.eyJzdWIiOiIxOVp2eUtHNWNOdDJiZHVLSDRjclp6Sm5lZkJYcmJLaGIyIiwiaXNzdWVyIjoiZ2VuZXJpYy1iaXRhdXRoIn0.SDk2Yit5R1dqeXc0WklHZlNDd1NwUmloM2tNRUVtRnRGZld4ZWhBRVhjWnhmWkMzR1RmanpkdEVnNWJ1VEk0cm92NFROMk5CYkl2UnlmR1lBSFYzRlYwPQ"
   @query_a %{
     q: %{
       find: %{

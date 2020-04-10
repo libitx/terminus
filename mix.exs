@@ -29,6 +29,7 @@ defmodule Terminus.MixProject do
       {:jason, "~> 1.2"},
       {:mint, "~> 1.0"},
       {:plug_cowboy, "~> 2.1", only: :test},
+      {:sse, "~> 0.4.0", only: :test}
     ]
   end
 

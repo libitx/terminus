@@ -9,23 +9,41 @@ defmodule MockServer do
   plug :dispatch
 
   # Bitbus /status mock
-  get "/status" do
-    body = File.read!("test/mocks/status.json")
-    stream_resp(conn, 200, body)
-  end
-
-  # Bitbus /status mock
   post "/block" do
     {status, body} = case get_req_header(conn, "token") do
-      ["test"] -> {200, File.read!("test/mocks/block.json")}
+      ["test"] -> {200, File.read!("test/mocks/bitbus-block.json")}
       _ -> {403, File.read!("test/mocks/unauthorized.json")}
     end
     stream_resp(conn, status, body)
   end
 
+  # Bitbus /status mock
+  get "/status" do
+    body = File.read!("test/mocks/bitbus-status.json")
+    stream_resp(conn, 200, body)
+  end
 
-  # Helpers
+  # Bitsocket /crawl mock
+  post "/crawl" do
+    {status, body} = case get_req_header(conn, "token") do
+      ["test"] -> {200, File.read!("test/mocks/bitsocket-crawl.json")}
+      _ -> {403, File.read!("test/mocks/unauthorized.json")}
+    end
+    stream_resp(conn, status, body)
+  end
 
+  # Bitsocket /listen mock
+  get "/s/:query" do
+    data = %{type: "push", data: [%{"tx" => %{"h" => "741bcaf3f5ec40a48d78fcc0314ce260547122e8f69c51cedbf9e56ec3388c35"}}]}
+    chunk = %SSE.Chunk{data: Jason.encode!(data)}
+    conn = SSE.stream(conn, {[:test], chunk})
+    IO.puts "halt"
+    halt(conn)
+
+  end
+
+  
+  # Setup the streaming response
   defp stream_resp(conn, status, body) do
     conn
     |> put_resp_header("content-length", Integer.to_string(byte_size(body)))
@@ -33,6 +51,7 @@ defmodule MockServer do
     |> stream_chunks(body)
   end
 
+  # Breakup and stream the body in chunks
   defp stream_chunks(conn, body) when is_binary(body) do
     chunks = Regex.scan(~r/.{1,192}/s, body)
     |> Enum.map(&Enum.join/1)
@@ -46,4 +65,5 @@ defmodule MockServer do
       {:error, :closed} -> conn
     end
   end
+
 end

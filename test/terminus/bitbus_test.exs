@@ -2,17 +2,6 @@ defmodule Terminus.BitbusTest do
   use ExUnit.Case
   alias Terminus.Bitbus
 
-  describe "Bitbus.status/1" do
-    test "must return current status" do
-      res = Bitbus.status(host: "127.0.0.1")
-
-      assert Map.keys(res) |> length == 8
-      assert Map.keys(res) |> Enum.member?("hash")
-      assert Map.keys(res) |> Enum.member?("height")
-      assert Map.keys(res) |> Enum.member?("time")
-    end
-  end
-
 
   describe "Bitbus.crawl/3 with valid token" do
     test "must return a stream" do
@@ -52,6 +41,17 @@ defmodule Terminus.BitbusTest do
       assert_raise Terminus.HTTPError, "HTTP Error: Forbidden", fn ->
         Bitbus.crawl!(%{"q" => "test"}, host: "127.0.0.1")
       end
+    end
+  end
+
+
+  describe "Bitbus.status/1" do
+    test "must return current status" do
+      res = Bitbus.status(host: "127.0.0.1")
+      assert Map.keys(res) |> length == 8
+      assert Map.keys(res) |> Enum.member?("hash")
+      assert Map.keys(res) |> Enum.member?("height")
+      assert Map.keys(res) |> Enum.member?("time")
     end
   end
   

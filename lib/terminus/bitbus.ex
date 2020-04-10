@@ -6,8 +6,8 @@ defmodule Terminus.Bitbus do
 
 
   @doc """
-  Crawls [Bitbus](https://bitbus.network) for blocks using the given query and
-  streams the result.
+  Crawls [Bitbus](https://bitbus.network) for transactions using the given query
+  and streams the result.
 
   All requests must provide a valid [Planaria token](https://token.planaria.network).
   By default a streaming `t:Enumerable.t/0` is returned. If a [`callback`](`t:Terminus.callback/0`)
@@ -54,11 +54,11 @@ defmodule Terminus.Bitbus do
   @spec crawl(map | String.t, keyword, function) :: Enumerable.t | pid
   def crawl(query, options \\ [], ondata \\ nil)
 
-  def crawl(%{} = query, opts, ondata),
-    do: Jason.encode!(query) |> crawl(opts, ondata)
+  def crawl(%{} = query, options, ondata),
+    do: Jason.encode!(query) |> crawl(options, ondata)
 
-  def crawl(query, opts, ondata) when is_binary(query) do
-    case stream("POST", "/block", query, opts) do
+  def crawl(query, options, ondata) when is_binary(query) do
+    case stream("POST", "/block", query, options) do
       {:ok, pid} when is_pid(pid) ->
         pid
 
@@ -74,8 +74,8 @@ defmodule Terminus.Bitbus do
 
 
   @doc """
-  Crawls [Bitbus](https://bitbus.network) for blocks using the given query and
-  accumulates the result into a [`list`](`t:list/0`) of [`maps`](`t:map/0`).
+  Crawls [Bitbus](https://bitbus.network) for transactions using the given query
+  and accumulates the result into a [`list`](`t:list/0`) of [`maps`](`t:map/0`).
 
   All requests must provide a valid [Planaria token](https://token.planaria.network).
   By default a streaming `t:Enumerable.t/0` is returned.
@@ -90,12 +90,15 @@ defmodule Terminus.Bitbus do
   ## Examples
 
         iex> Terminus.Bitbus.crawl!(query, token: token)
-        [%{}, ...]
+        [%{
+          "tx" => %{"h" => "bbae7aa467cb34010c52033691f6688e00d9781b2d24620cab51827cd517afb8"},
+          ...
+        }, ...]
   """
   @spec crawl!(map | String.t, keyword) :: list
-  def crawl!(query, opts \\ []) do
+  def crawl!(query, options \\ []) do
     try do
-      crawl(query, opts) |> Enum.to_list
+      crawl(query, options) |> Enum.to_list
     catch
       :exit, {error, _} ->
         raise error
@@ -125,8 +128,8 @@ defmodule Terminus.Bitbus do
   
   """
   @spec status() :: map
-  def status(opts \\ []) do
-    case stream("GET", "/status", nil, opts) do
+  def status(options \\ []) do
+    case stream("GET", "/status", nil, options) do
       {:ok, stream} ->
         stream
         |> Enum.to_list

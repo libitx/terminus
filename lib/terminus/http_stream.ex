@@ -122,8 +122,12 @@ defmodule Terminus.HTTPStream do
     end
   end
 
-  defp parse_messages([], messages),
-    do: {Enum.reverse(messages), ""}
+  defp parse_messages([], messages) do
+    messages = messages
+    |> Enum.reject(& &1.data == "")
+    |> Enum.reverse
+    {messages, ""}
+  end
 
   defp parse_messages([line | data], [msg | messages]) do
     msg = case line do
