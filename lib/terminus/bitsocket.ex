@@ -6,55 +6,60 @@ defmodule Terminus.Bitsocket do
 
 
   @doc """
-  Crawls the [Bitsocket](https://bitsocket.network) event database for
-  transactions using the given query and streams the result.
+  Crawls the Bitsocket event database for transactions using the given query and
+  returns a stream.
+
+  Returns the result in an `:ok` / `:error` tuple pair.
 
   All requests must provide a valid [Planaria token](https://token.planaria.network).
-  By default a streaming `t:Enumerable.t/0` is returned. If a [`callback`](`t:Terminus.callback/0`)
-  is provided, the stream is automatically run and the callback is called on
-  each transaction.
+  By default a streaming `t:Enumerable.t/0` is returned.  Optionally a linked
+  GenStage [`pid`](`t:pid/0`) can be returned for using in combination with your
+  own GenStage consumer.
 
-  Optionally a linked GenStage [`pid`](`t:pid/0`) can be returned for using in
-  combination with you own GenStage consumer.
+  If a [`callback`](`t:Terminus.callback/0`) is provided, the stream is
+  automatically run and the callback is called on each transaction.
 
   ## Options
 
   The accepted options are:
 
-  * `token` - Planaria authentication token.
+  * `token` - Planaria authentication token. **Required**.
   * `host` - The Bitsocket host. Defaults to `txo.bitsocket.network`.
-  * `linked_stage` - Return a linked GenStage [`pid`](`t:pid/0`) instead of a stream.
+  * `stage` - Return a linked GenStage [`pid`](`t:pid/0`). Defaults to `false`.
 
   ## Examples
 
   Queries should be in the form of any valid [Bitquery](https://bitquery.planaria.network/).
 
       query = %{
-        q: %{find: %{ "out.s2" => "1LtyME6b5AnMopQrBPLk4FGN8UBuhxKqrn" }}
+        find: %{ "out.s2" => "1LtyME6b5AnMopQrBPLk4FGN8UBuhxKqrn" }
       }
 
   By default `Terminus.Bitsocket.crawl/2` returns a streaming `t:Enumerable.t/0`.
 
       iex> Terminus.Bitsocket.crawl(query, token: token)
-      %Stream{}
+      {:ok, %Stream{}}
 
-  If a [`callback`](`t:Terminus.callback/0`) is provided, the stream returns `:ok`
-  and the callback is called on each transaction.
+  Optionally the [`pid`](`t:pid/0`) of the GenStage producer can be returned. 
+
+      iex> Terminus.Bitsocket.crawl(query, token: token, stage: true)
+      {:ok, #PID<>}
+
+  If a [`callback`](`t:Terminus.callback/0`) is provided, the function
+  returns `:ok` and the callback is called on each transaction.
 
       iex> Terminus.Bitsocket.crawl(query, [token: token], fn tx ->
       ...>   IO.inspect tx
       ...> end)
       :ok
-
-  Optionally the [`pid`](`t:pid/0`) of the GenStage producer can be returned. 
-
-      iex> Terminus.Bitsocket.crawl(query, token: token, linked_stage: true)
-      #PID<>
   """
   @spec crawl(map | String.t, keyword, function) ::
     {:ok, Enumerable.t | pid} | :ok |
     {:error, String.t}
   def crawl(query, options \\ [], ondata \\ nil)
+
+  def crawl(query, options, nil) when is_function(options),
+    do: crawl(query, [], options)
 
   def crawl(%{} = query, options, ondata),
     do: Jason.encode!(query) |> crawl(options, ondata)
@@ -76,27 +81,7 @@ defmodule Terminus.Bitsocket do
 
 
   @doc """
-  Crawls the [Bitsocket](https://bitsocket.network) event database for
-  transactions using the given query and accumulates the result into a
-  [`list`](`t:list/0`) of [`maps`](`t:map/0`).
-
-  All requests must provide a valid [Planaria token](https://token.planaria.network).
-  By default a streaming `t:Enumerable.t/0` is returned.
-
-  ## Options
-
-  The accepted options are:
-
-  * `token` - Planaria authentication token.
-  * `host` - The Bitsocket host. Defaults to `txo.bitsocket.network`.
-
-  ## Examples
-
-        iex> Terminus.Bitsocket.crawl!(query, token: token)
-        [%{
-          "tx" => %{"h" => "741bcaf3f5ec40a48d78fcc0314ce260547122e8f69c51cedbf9e56ec3388c35"},
-          ...
-        }, ...]
+  As `crawl/3` but returns the result or raises an exception if it fails.
   """
   @spec crawl!(map | String.t, keyword, function) :: Enumerable.t | pid | :ok
   def crawl!(query, options \\ [], ondata \\ nil) do
@@ -113,11 +98,37 @@ defmodule Terminus.Bitsocket do
 
 
   @doc """
-  TODO
+  Crawls the Bitsocket event database for transactions using the given query and
+  returns a stream.
+
+  Returns the result in an `:ok` / `:error` tuple pair.
+
+  This function is suitable for smaller limited queries as the entire result set
+  is loaded in to memory an returned. For large crawls, `crawl/3` is preferred
+  as the results can be streamed and processed more efficiently.
+
+  ## Options
+
+  The accepted options are:
+
+  * `token` - Planaria authentication token. **Required**.
+  * `host` - The Bitsocket host. Defaults to `txo.bitsocket.network`.
+
+  ## Examples
+
+        iex> Terminus.Bitsocket.fetch(query, token: token)
+        [
+          %{
+            "tx" => %{"h" => "bbae7aa467cb34010c52033691f6688e00d9781b2d24620cab51827cd517afb8"},
+            ...
+          },
+          ...
+        ]
   """
   @spec fetch(map | String.t, keyword) :: {:ok, list} | {:error, String.t}
   def fetch(query, options \\ []) do
     options = Keyword.drop(options, [:stage])
+
     case crawl(query, options) do
       {:ok, stream} ->
         try do
@@ -137,7 +148,7 @@ defmodule Terminus.Bitsocket do
 
 
   @doc """
-  TODO
+  As `fetch/2` but returns the result or raises an exception if it fails.
   """
   @spec fetch!(map | String.t, keyword) :: list
   def fetch!(query, options \\ []) do
@@ -158,39 +169,46 @@ defmodule Terminus.Bitsocket do
 
 
   @doc """
-  Subscribe to [Bitsocket](https://bitsocket.network) events to stream realtime
-  transactions using the given query.
+  Subscribes to Bitsocket and streams realtime transaction events using the
+  given query.
 
-  By default a streaming `t:Enumerable.t/0` is returned. If a [`callback`](`t:Terminus.callback/0`)
-  is provided, the stream is automatically run and the callback is called on
-  each transaction.
+  Returns the result in an `:ok` / `:error` tuple pair.
+
+  By default a streaming `t:Enumerable.t/0` is returned. Optionally a linked
+  GenStage [`pid`](`t:pid/0`) can be returned for using in combination with your
+  own GenStage consumer.
+
+  If a [`callback`](`t:Terminus.callback/0`) is provided, the stream is
+  automatically run and the callback is called on each transaction.
 
   As Bitsocket streams transactions using [Server Sent Events](https://en.wikipedia.org/wiki/Server-sent_events),
   the stream will stay open (and blocking) permanently. This is best managed
-  inside a long-running Elixir process.
-
-  Optionally a linked GenStage [`pid`](`t:pid/0`) can be returned for using in
-  combination with you own GenStage consumer.
+  inside a long-running Elixir process.  
 
   ## Options
 
   The accepted options are:
 
   * `host` - The Bitsocket host. Defaults to `txo.bitsocket.network`.
-  * `linked_stage` - Return a linked GenStage [`pid`](`t:pid/0`) instead of a stream.
+  * `stage` - Return a linked GenStage [`pid`](`t:pid/0`) instead of a stream.
 
   ## Examples
 
   Queries should be in the form of any valid [Bitquery](https://bitquery.planaria.network/).
 
       query = %{
-        q: %{find: %{ "out.s2" => "1LtyME6b5AnMopQrBPLk4FGN8UBuhxKqrn" }}
+        find: %{ "out.s2" => "1LtyME6b5AnMopQrBPLk4FGN8UBuhxKqrn" }
       }
 
   By default `Terminus.Bitsocket.listen/2` returns a streaming `t:Enumerable.t/0`.
 
       iex> Terminus.Bitsocket.listen(query, token: token)
-      %Stream{}
+      {:ok, %Stream{}}
+
+  Optionally the [`pid`](`t:pid/0`) of the GenStage producer can be returned. 
+
+      iex> Terminus.Bitsocket.listen(query, token: token, stage: true)
+      {:ok, #PID<>}
 
   If a [`callback`](`t:Terminus.callback/0`) is provided, the stream returns `:ok`
   and the callback is called on each transaction.
@@ -199,22 +217,14 @@ defmodule Terminus.Bitsocket do
       ...>   IO.inspect tx
       ...> end)
       :ok
-
-  Optionally the [`pid`](`t:pid/0`) of the GenStage producer can be returned. 
-
-      iex> Terminus.Bitsocket.listen(query, token: token, linked_stage: true)
-      #PID<>
   """
   @spec listen(map | String.t, keyword, function) ::
     {:ok, Enumerable.t | pid} | :ok |
     {:error, String.t}
-  def listen(query), do: listen(query, [], nil)
+  def listen(query, options \\ [], ondata \\ nil)
 
-  def listen(query, options) when is_list(options),
-    do: listen(query, options, nil)
-
-  def listen(query, ondata) when is_function(ondata),
-    do: listen(query, [], ondata)
+  def listen(query, options, nil) when is_function(options),
+    do: listen(query, [], options)
 
   def listen(%{} = query, options, ondata),
     do: Jason.encode!(query) |> listen(options, ondata)
@@ -237,7 +247,7 @@ defmodule Terminus.Bitsocket do
 
 
   @doc """
-  TODO
+  As `listen/3` but returns the result or raises an exception if it fails.
   """
   @spec listen!(map | String.t, keyword) :: Enumerable.t | pid | :ok
   def listen!(query, options \\ []) do

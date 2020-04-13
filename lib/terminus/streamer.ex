@@ -17,15 +17,11 @@ defmodule Terminus.Streamer do
     quote do
       alias Terminus.{Chunker, HTTPError, Streamer}
 
-      @doc """
-      TODO
-      """
+      @doc false
       def stream(method, path, body, opts \\ []),
         do: Streamer.stream(method, unquote(host), path, body, opts)
 
-      @doc """
-      TODO
-      """
+      @doc false
       def handle_callback(stream, ondata),
         do: Streamer.handle_callback(stream, ondata)
       

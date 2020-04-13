@@ -6,55 +6,59 @@ defmodule Terminus.Bitbus do
 
 
   @doc """
-  Crawls [Bitbus](https://bitbus.network) for transactions using the given query
-  and streams the result.
+  Crawls Bitbus for transactions using the given query and returns a stream.
+
+  Returns the result in an `:ok` / `:error` tuple pair.
 
   All requests must provide a valid [Planaria token](https://token.planaria.network).
-  By default a streaming `t:Enumerable.t/0` is returned. If a [`callback`](`t:Terminus.callback/0`)
-  is provided, the stream is automatically run and the callback is called on
-  each transaction.
+  By default a streaming `t:Enumerable.t/0` is returned. Optionally a linked
+  GenStage [`pid`](`t:pid/0`) can be returned for using in combination with your
+  own GenStage consumer.
 
-  Optionally a linked GenStage [`pid`](`t:pid/0`) can be returned for using in
-  combination with you own GenStage consumer.
+  If a [`callback`](`t:Terminus.callback/0`) is provided, the stream is
+  automatically run and the callback is called on each transaction.
 
   ## Options
 
   The accepted options are:
 
-  * `token` - Planaria authentication token.
+  * `token` - Planaria authentication token. **Required**.
   * `host` - The Bitbus host. Defaults to `txo.bitbus.network`.
-  * `linked_stage` - Return a linked GenStage [`pid`](`t:pid/0`) instead of a stream.
+  * `stage` - Return a linked GenStage [`pid`](`t:pid/0`). Defaults to `false`.
 
   ## Examples
 
   Queries should be in the form of any valid [Bitquery](https://bitquery.planaria.network/).
 
       query = %{
-        q: %{find: %{ "out.s2" => "1LtyME6b5AnMopQrBPLk4FGN8UBuhxKqrn" }}
+        find: %{ "out.s2" => "1LtyME6b5AnMopQrBPLk4FGN8UBuhxKqrn" }
       }
 
   By default `Terminus.Bitbus.crawl/2` returns a streaming `t:Enumerable.t/0`.
 
       iex> Terminus.Bitbus.crawl(query, token: token)
-      %Stream{}
+      {:ok, %Stream{}}
 
-  If a `t:Terminus.callback` is provided, the stream returns `:ok` and the
-  callback is called on each transaction.
+  Optionally the [`pid`](`t:pid/0`) of the GenStage producer can be returned. 
+
+      iex> Terminus.Bitbus.crawl(query, token: token, stage: true)
+      {:ok, #PID<>}
+
+  If a [`callback`](`t:Terminus.callback/0`) is provided, the function
+  returns `:ok` and the callback is called on each transaction.
 
       iex> Terminus.Bitbus.crawl(query, [token: token], fn tx ->
       ...>   IO.inspect tx
       ...> end)
       :ok
-
-  Optionally the [`pid`](`t:pid/0`) of the GenStage producer can be returned. 
-
-      iex> Terminus.Bitbus.crawl(query, token: token, linked_stage: true)
-      #PID<>
   """
   @spec crawl(map | String.t, keyword, function) ::
     {:ok, Enumerable.t | pid} | :ok |
     {:error, String.t}
   def crawl(query, options \\ [], ondata \\ nil)
+
+  def crawl(query, options, nil) when is_function(options),
+    do: crawl(query, [], options)
 
   def crawl(%{} = query, options, ondata),
     do: Jason.encode!(query) |> crawl(options, ondata)
@@ -76,26 +80,7 @@ defmodule Terminus.Bitbus do
 
 
   @doc """
-  Crawls [Bitbus](https://bitbus.network) for transactions using the given query
-  and accumulates the result into a [`list`](`t:list/0`) of [`maps`](`t:map/0`).
-
-  All requests must provide a valid [Planaria token](https://token.planaria.network).
-  By default a streaming `t:Enumerable.t/0` is returned.
-
-  ## Options
-
-  The accepted options are:
-
-  * `token` - Planaria authentication token.
-  * `host` - The Bitbus host. Defaults to `txo.bitbus.network`.
-
-  ## Examples
-
-        iex> Terminus.Bitbus.crawl!(query, token: token)
-        [%{
-          "tx" => %{"h" => "bbae7aa467cb34010c52033691f6688e00d9781b2d24620cab51827cd517afb8"},
-          ...
-        }, ...]
+  As `crawl/3` but returns the result or raises an exception if it fails.
   """
   @spec crawl!(map | String.t, keyword, function) :: Enumerable.t | pid | :ok
   def crawl!(query, options \\ [], ondata \\ nil) do
@@ -112,11 +97,37 @@ defmodule Terminus.Bitbus do
 
 
   @doc """
-  TODO
+  Crawls Bitbus for transactions using the given query and returns a list of
+  transactions.
+
+  Returns the result in an `:ok` / `:error` tuple pair.
+
+  This function is suitable for smaller limited queries as the entire result set
+  is loaded in to memory an returned. For large crawls, `crawl/3` is preferred
+  as the results can be streamed and processed more efficiently.
+
+  ## Options
+
+  The accepted options are:
+
+  * `token` - Planaria authentication token. **Required**.
+  * `host` - The Bitbus host. Defaults to `txo.bitbus.network`.
+
+  ## Examples
+
+        iex> Terminus.Bitbus.fetch(query, token: token)
+        {:ok, [
+          %{
+            "tx" => %{"h" => "bbae7aa467cb34010c52033691f6688e00d9781b2d24620cab51827cd517afb8"},
+            ...
+          },
+          ...
+        ]}
   """
   @spec fetch(map | String.t, keyword) :: {:ok, list} | {:error, String.t}
   def fetch(query, options \\ []) do
     options = Keyword.drop(options, [:stage])
+    
     case crawl(query, options) do
       {:ok, stream} ->
         try do
@@ -136,7 +147,7 @@ defmodule Terminus.Bitbus do
 
 
   @doc """
-  TODO
+  As `fetch/2` but returns the result or raises an exception if it fails.
   """
   @spec fetch!(map | String.t, keyword) :: list
   def fetch!(query, options \\ []) do
@@ -157,15 +168,16 @@ defmodule Terminus.Bitbus do
 
 
   @doc """
-  Fetches and returns the current status of [Bitbus](https://bitbus.network).
+  Fetches and returns the current status of Bitbus.
 
-  The returned [`map`](`t:map/0`) of data includes the current block header as
-  well as the total number of transactions in the block (`count`) .
+  Returns the result in an `:ok` / `:error` tuple pair. The returned [`map`](`t:map/0`)
+  of data includes the current block header as well as the total number of
+  transactions in the block (`count`).
 
   ## Examples
 
       iex> Terminus.Bitbus.status
-      %{
+      {:ok, %{
         "hash" => "00000000000000000249f9bd0e127ebc62125a72686a7470fe4a41e4add2deb1",
         "prevHash" => "000000000000000001b3ea9c4c073226c6233583ab510ea10ce01faff17c89f3",
         "merkleRoot" => "fb19b1ff5cd838cfca399f9f2e46fa3a0e9f0da0459f91bfd6d02a75756f3a4d",
@@ -174,10 +186,9 @@ defmodule Terminus.Bitbus do
         "nonce" => 1471454449,
         "height" => 629967,
         "count" => 2193
-      }
-  
+      }}
   """
-  @spec status() :: {:ok, map} | {:error, String.t}
+  @spec status(keyword) :: {:ok, map} | {:error, String.t}
   def status(options \\ []) do
     options = Keyword.take(options, [:host])
 
@@ -195,9 +206,9 @@ defmodule Terminus.Bitbus do
 
 
   @doc """
-  TODO
+  As `status/1` but returns the result or raises an exception if it fails.
   """
-  @spec status!() :: map
+  @spec status!(keyword) :: map
   def status!(options \\ []) do
     case status(options) do
       {:ok, data} ->
