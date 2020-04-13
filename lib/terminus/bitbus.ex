@@ -2,7 +2,7 @@ defmodule Terminus.Bitbus do
   @moduledoc """
   TODO
   """
-  use Terminus.HTTPStream, host: "txo.bitbus.network"
+  use Terminus.Streamer, host: "txo.bitbus.network"
 
 
   @doc """
@@ -51,24 +51,26 @@ defmodule Terminus.Bitbus do
       iex> Terminus.Bitbus.crawl(query, token: token, linked_stage: true)
       #PID<>
   """
-  @spec crawl(map | String.t, keyword, function) :: Enumerable.t | pid
+  @spec crawl(map | String.t, keyword, function) ::
+    {:ok, Enumerable.t | pid} | :ok |
+    {:error, String.t}
   def crawl(query, options \\ [], ondata \\ nil)
 
   def crawl(%{} = query, options, ondata),
     do: Jason.encode!(query) |> crawl(options, ondata)
 
   def crawl(query, options, ondata) when is_binary(query) do
+    options = Keyword.put_new(options, :chunker, :ndjson)
+
     case stream("POST", "/block", query, options) do
       {:ok, pid} when is_pid(pid) ->
-        pid
+        {:ok, pid}
 
       {:ok, stream} ->
-        stream
-        |> HTTPStream.parse_ndjson
-        |> HTTPStream.handle_data(ondata)
+        handle_callback(stream, ondata)
 
       {:error, error} ->
-        raise error
+        {:error, error}
     end
   end
 
@@ -95,12 +97,60 @@ defmodule Terminus.Bitbus do
           ...
         }, ...]
   """
-  @spec crawl!(map | String.t, keyword) :: list
-  def crawl!(query, options \\ []) do
-    try do
-      crawl(query, options) |> Enum.to_list
-    catch
-      :exit, {error, _} ->
+  @spec crawl!(map | String.t, keyword, function) :: Enumerable.t | pid | :ok
+  def crawl!(query, options \\ [], ondata \\ nil) do
+    case crawl(query, options, ondata) do
+      :ok -> :ok
+
+      {:ok, stream} ->
+        stream
+
+      {:error, error} ->
+        raise error
+    end
+  end
+
+
+  @doc """
+  TODO
+  """
+  @spec fetch(map | String.t, keyword) :: {:ok, list} | {:error, String.t}
+  def fetch(query, options \\ []) do
+    options = Keyword.drop(options, [:stage])
+    case crawl(query, options) do
+      {:ok, stream} ->
+        try do
+          {:ok, Enum.to_list(stream)}
+        catch
+          :exit, {%HTTPError{} = error, _} ->
+            {:error, HTTPError.message(error)}
+
+          :exit, {error, _} ->
+            {:error, error}
+        end
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
+
+  @doc """
+  TODO
+  """
+  @spec fetch!(map | String.t, keyword) :: list
+  def fetch!(query, options \\ []) do
+    options = Keyword.drop(options, [:stage])
+    case crawl(query, options) do
+      {:ok, stream} ->
+        try do
+          Enum.to_list(stream)
+        catch
+          :exit, {error, _} ->
+            raise error
+        end
+
+      {:error, error} ->
         raise error
     end
   end
@@ -127,14 +177,31 @@ defmodule Terminus.Bitbus do
       }
   
   """
-  @spec status() :: map
+  @spec status() :: {:ok, map} | {:error, String.t}
   def status(options \\ []) do
+    options = Keyword.take(options, [:host])
+
     case stream("GET", "/status", nil, options) do
       {:ok, stream} ->
         stream
         |> Enum.to_list
         |> Enum.join
-        |> Jason.decode!
+        |> Jason.decode
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
+
+  @doc """
+  TODO
+  """
+  @spec status!() :: map
+  def status!(options \\ []) do
+    case status(options) do
+      {:ok, data} ->
+        data
 
       {:error, error} ->
         raise error

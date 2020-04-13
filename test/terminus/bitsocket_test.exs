@@ -3,14 +3,15 @@ defmodule Terminus.BitsocketTest do
   alias Terminus.Bitsocket
 
 
-  describe "Bitsocket.crawl/3 with valid token" do
+  describe "Bitsocket.crawl/3" do
     test "must return a stream" do
-      res = Bitsocket.crawl(%{"q" => "test"}, token: "test", host: "127.0.0.1")
-      assert %Stream{} = res
+      {:ok, res} = Bitsocket.crawl(%{"q" => "test"}, token: "test", host: "127.0.0.1")
+      assert is_function(res)
+      assert inspect(res) |> String.match?(~r/Stream/)
     end
 
     test "must return a pid" do
-      res = Bitsocket.crawl(%{"q" => "test"}, token: "test", host: "127.0.0.1", linked_stage: true)
+      {:ok, res} = Bitsocket.crawl(%{"q" => "test"}, token: "test", host: "127.0.0.1", stage: true)
       assert is_pid(res)
     end
 
@@ -19,19 +20,41 @@ defmodule Terminus.BitsocketTest do
         assert String.length(tx["tx"]["h"]) == 64
       end)
     end
+  end
 
-    @tag capture_log: true
-    test "must throw an error when no token" do
-      assert_raise Terminus.HTTPError, "HTTP Error: Forbidden", fn ->
-        Bitsocket.crawl(%{"q" => "test"}, [host: "127.0.0.1"], &IO.inspect/1)
-      end
+
+  describe "Bitsocket.crawl!/3" do
+    test "must return a stream" do
+      res = Bitsocket.crawl!(%{"q" => "test"}, token: "test", host: "127.0.0.1")
+      assert is_function(res)
+      assert inspect(res) |> String.match?(~r/Stream/)
+    end
+
+    test "must return a pid" do
+      res = Bitsocket.crawl!(%{"q" => "test"}, token: "test", host: "127.0.0.1", stage: true)
+      assert is_pid(res)
     end
   end
 
 
-  describe "Bitsocket.crawl!/2" do
-    test "must return data when valid token" do
-      res = Bitsocket.crawl!(%{"q" => "test"}, token: "test", host: "127.0.0.1")
+  describe "Bitsocket.fetch/2" do
+    test "must return an enumerable" do
+      {:ok, res} = Bitsocket.fetch(%{"q" => "test"}, token: "test", host: "127.0.0.1")
+      assert is_list(res)
+      assert length(res) == 5
+    end
+
+    @tag capture_log: true
+    test "must return an error when no token" do
+      {:error, reason} = Bitsocket.fetch(%{"q" => "test"}, host: "127.0.0.1")
+      assert reason == "HTTP Error: Forbidden"
+    end
+  end
+
+
+  describe "Bitsocket.fetch!/2" do
+    test "must return an enumerable" do
+      res = Bitsocket.fetch!(%{"q" => "test"}, token: "test", host: "127.0.0.1")
       assert is_list(res)
       assert length(res) == 5
     end
@@ -39,22 +62,21 @@ defmodule Terminus.BitsocketTest do
     @tag capture_log: true
     test "must throw an error when no token" do
       assert_raise Terminus.HTTPError, "HTTP Error: Forbidden", fn ->
-        Bitsocket.crawl!(%{"q" => "test"}, host: "127.0.0.1")
+        Bitsocket.fetch!(%{"q" => "test"}, host: "127.0.0.1")
       end
     end
   end
 
 
-  describe "Bitsocket.listen/2" do
+  describe "Bitsocket.listen/3" do
     test "must return a stream" do
-      res = Bitsocket.listen(%{"q" => "test"}, host: "127.0.0.1")
-
+      {:ok, res} = Bitsocket.listen(%{"q" => "test"}, host: "127.0.0.1")
       assert is_function(res)
       assert inspect(res) |> String.match?(~r/Stream/)
     end
 
     test "must return a pid" do
-      res = Bitsocket.listen(%{"q" => "test"}, host: "127.0.0.1", linked_stage: true)
+      {:ok, res} = Bitsocket.listen(%{"q" => "test"}, host: "127.0.0.1", stage: true)
       assert is_pid(res)
     end
 
@@ -71,6 +93,20 @@ defmodule Terminus.BitsocketTest do
         err ->
           assert err.message == "get me outta here"
       end
+    end
+  end
+
+
+  describe "Bitsocket.listen!/3" do
+    test "must return a stream" do
+      res = Bitsocket.listen!(%{"q" => "test"}, host: "127.0.0.1")
+      assert is_function(res)
+      assert inspect(res) |> String.match?(~r/Stream/)
+    end
+
+    test "must return a pid" do
+      res = Bitsocket.listen!(%{"q" => "test"}, host: "127.0.0.1", stage: true)
+      assert is_pid(res)
     end
   end
   

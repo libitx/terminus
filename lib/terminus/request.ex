@@ -1,30 +1,27 @@
-defmodule Terminus.HTTPStage do
+defmodule Terminus.Request do
   @moduledoc """
   TODO
   """
   use GenStage
   alias Mint.HTTP
-  alias Terminus.Response
-  alias Terminus.HTTPError
+  alias Terminus.{Chunker,HTTPError,Response}
   require Logger
-  
-  
+
 
   defstruct conn: nil,
             ref: nil,
-            demand: 0,
-            events: [],
             response: %Response{},
+            events: [],
+            demand: 0,
+            chunker: :raw,
             last_resp: :init
-
-  
 
 
   @doc """
   TODO
   """
   def connect(scheme, host, port, opts \\ []) do
-    case Keyword.get(opts, :linked_stage) do
+    case Keyword.get(opts, :stage) do
       true ->
         GenStage.start_link(__MODULE__, {scheme, host, port})
       _ ->
@@ -36,8 +33,8 @@ defmodule Terminus.HTTPStage do
   @doc """
   TODO
   """
-  def request(pid, method, path, headers, body) do
-    GenStage.cast(pid, {:request, method, path, headers, body})
+  def request(pid, method, path, headers, body, chunker) do
+    GenStage.cast(pid, {:request, method, path, headers, body, chunker})
   end
 
 
@@ -57,12 +54,13 @@ defmodule Terminus.HTTPStage do
 
 
   @impl true
-  def handle_cast({:request, method, path, headers, body}, state) do
+  def handle_cast({:request, method, path, headers, body, chunker}, state) do
     case HTTP.request(state.conn, method, path, headers, body) do
       {:ok, conn, request_ref} ->
         state = Map.merge(state, %{
           conn: conn,
-          ref: request_ref
+          ref: request_ref,
+          chunker: chunker
         })
         {:noreply, [], state}
 
@@ -75,12 +73,9 @@ defmodule Terminus.HTTPStage do
 
   @impl true
   def handle_demand(demand, state) do
-    {remaining, events} = Enum.split(state.events, -1 * demand)
-    state = Map.merge(state, %{
-      demand: demand - length(events),
-      events: remaining
-    })
-    {:noreply, Enum.reverse(events), state}
+    {events, state} = update_in(state.demand, &(&1 + demand))
+    |> process_events
+    {:noreply, events, state}
   end
 
 
@@ -101,13 +96,9 @@ defmodule Terminus.HTTPStage do
 
       {:ok, conn, responses} ->
         state = put_in(state.conn, conn)
-        state = Enum.reduce(responses, state, &process_response/2)
-        {remaining, events} = Enum.split(state.events, -1 * state.demand)
-        state = Map.merge(state, %{
-          demand: state.demand - length(events),
-          events: remaining
-        })
-        {:noreply, Enum.reverse(events), state}
+        {events, state} = Enum.reduce(responses, state, &process_response/2)
+        |> process_events
+        {:noreply, events, state}
 
       {:error, conn, %Mint.TransportError{reason: :closed}, _responses} ->
         state = put_in(state.conn, conn)
@@ -138,7 +129,7 @@ defmodule Terminus.HTTPStage do
   defp process_response({:data, request_ref, data}, %__MODULE__{ref: ref} = state)
     when request_ref == ref
   do
-    put_filtered_event(state, data)
+    update_in(state.response.data, &(&1 <> data))
     |> Map.put(:last_resp, :data)
   end
 
@@ -146,14 +137,39 @@ defmodule Terminus.HTTPStage do
     when request_ref == ref,
     do: put_in(state.last_resp, :done)
 
-  defp put_filtered_event(state, ""), do: state
-  defp put_filtered_event(state, data), do: update_in(state.events, &([data | &1]))
+
+  # TODO
+  defp process_events(%__MODULE__{response: %Response{data: ""}} = state),
+    do: {[], state}
+
+  defp process_events(%__MODULE__{} = state) do
+    {events, data} = Chunker.handle_chunk(state.chunker, state.response.data)
+    {events, remaining} = Enum.split(state.events ++ events, state.demand)
+
+    state = put_in(state.response.data, data)
+    |> Map.put(:events, remaining)
+    |> Map.put(:demand, state.demand - length(events))
+
+    {events, state}
+  end
+
+
+
+
+  # TODO
+#  defp transform_chunks(%__MODULE__{chunker: nil} = state),
+#    do: Chunker.transform(state)
+#
+#  defp transform_chunks(%__MODULE__{chunker: chunker} = state)
+#    when is_atom(chunker),
+#    do: apply(chunker, :transform, [state])
+
 
 
   @impl true
   def terminate(reason, state) do
-    Logger.debug("Terminating HTTPStream Stage: #{inspect reason}")
+    Logger.debug("Terminating Terminus.Request: #{inspect reason}")
     HTTP.close(state.conn)
   end
-
+  
 end

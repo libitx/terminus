@@ -2,7 +2,7 @@ defmodule Terminus.Bitsocket do
   @moduledoc """
   TODO
   """
-  use Terminus.HTTPStream, host: "txo.bitsocket.network"
+  use Terminus.Streamer, host: "txo.bitsocket.network"
 
 
   @doc """
@@ -51,24 +51,26 @@ defmodule Terminus.Bitsocket do
       iex> Terminus.Bitsocket.crawl(query, token: token, linked_stage: true)
       #PID<>
   """
-  @spec crawl(map | String.t, keyword, function) :: Enumerable.t | pid
+  @spec crawl(map | String.t, keyword, function) ::
+    {:ok, Enumerable.t | pid} | :ok |
+    {:error, String.t}
   def crawl(query, options \\ [], ondata \\ nil)
 
   def crawl(%{} = query, options, ondata),
     do: Jason.encode!(query) |> crawl(options, ondata)
 
   def crawl(query, options, ondata) when is_binary(query) do
+    options = Keyword.put_new(options, :chunker, :ndjson)
+
     case stream("POST", "/crawl", query, options) do
       {:ok, pid} when is_pid(pid) ->
-        pid
+        {:ok, pid}
 
       {:ok, stream} ->
-        stream
-        |> HTTPStream.parse_ndjson
-        |> HTTPStream.handle_data(ondata)
+        handle_callback(stream, ondata)
 
       {:error, error} ->
-        raise error
+        {:error, error}
     end
   end
 
@@ -96,12 +98,60 @@ defmodule Terminus.Bitsocket do
           ...
         }, ...]
   """
-  @spec crawl!(map | String.t, keyword) :: list
-  def crawl!(query, options \\ []) do
-    try do
-      crawl(query, options) |> Enum.to_list
-    catch
-      :exit, {error, _} ->
+  @spec crawl!(map | String.t, keyword, function) :: Enumerable.t | pid | :ok
+  def crawl!(query, options \\ [], ondata \\ nil) do
+    case crawl(query, options, ondata) do
+      :ok -> :ok
+
+      {:ok, stream} ->
+        stream
+
+      {:error, error} ->
+        raise error
+    end
+  end
+
+
+  @doc """
+  TODO
+  """
+  @spec fetch(map | String.t, keyword) :: {:ok, list} | {:error, String.t}
+  def fetch(query, options \\ []) do
+    options = Keyword.drop(options, [:stage])
+    case crawl(query, options) do
+      {:ok, stream} ->
+        try do
+          {:ok, Enum.to_list(stream)}
+        catch
+          :exit, {%HTTPError{} = error, _} ->
+            {:error, HTTPError.message(error)}
+
+          :exit, {error, _} ->
+            {:error, error}
+        end
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
+
+  @doc """
+  TODO
+  """
+  @spec fetch!(map | String.t, keyword) :: list
+  def fetch!(query, options \\ []) do
+    options = Keyword.drop(options, [:stage])
+    case crawl(query, options) do
+      {:ok, stream} ->
+        try do
+          Enum.to_list(stream)
+        catch
+          :exit, {error, _} ->
+            raise error
+        end
+
+      {:error, error} ->
         raise error
     end
   end
@@ -155,22 +205,47 @@ defmodule Terminus.Bitsocket do
       iex> Terminus.Bitsocket.listen(query, token: token, linked_stage: true)
       #PID<>
   """
-  @spec listen(map | String.t, keyword, function) :: Enumerable.t | pid
-  def listen(query, options \\ [], ondata \\ nil)
+  @spec listen(map | String.t, keyword, function) ::
+    {:ok, Enumerable.t | pid} | :ok |
+    {:error, String.t}
+  def listen(query), do: listen(query, [], nil)
+
+  def listen(query, options) when is_list(options),
+    do: listen(query, options, nil)
+
+  def listen(query, ondata) when is_function(ondata),
+    do: listen(query, [], ondata)
 
   def listen(%{} = query, options, ondata),
     do: Jason.encode!(query) |> listen(options, ondata)
 
   def listen(query, options, ondata) when is_binary(query) do
+    options = Keyword.put_new(options, :chunker, :eventsource)
     path = "/s/" <> Base.encode64(query)
+
     case stream("GET", path, nil, options) do
       {:ok, pid} when is_pid(pid) ->
-        pid
+        {:ok, pid}
+
+      {:ok, stream} ->
+        handle_callback(stream, ondata)
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
+
+  @doc """
+  TODO
+  """
+  @spec listen!(map | String.t, keyword) :: Enumerable.t | pid | :ok
+  def listen!(query, options \\ []) do
+    case listen(query, options) do
+      :ok -> :ok
 
       {:ok, stream} ->
         stream
-        |> HTTPStream.parse_eventsource
-        |> HTTPStream.handle_data(ondata)
 
       {:error, error} ->
         raise error

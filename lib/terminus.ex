@@ -134,7 +134,7 @@ defmodule Terminus do
   end
 
   def test_a2 do
-    Terminus.Bitbus.crawl(@query_a, token: @token)
+    Terminus.Bitbus.crawl!(@query_a, token: @token)
     |> Enum.to_list
   end
 
@@ -152,7 +152,7 @@ defmodule Terminus do
   end
 
   def test_b2 do
-    Terminus.Bitsocket.crawl(@query_b, token: @token)
+    Terminus.Bitsocket.crawl!(@query_b, token: @token)
     |> Enum.to_list
   end
 
@@ -185,7 +185,7 @@ end
 
 defmodule Terminus.Response do
   @moduledoc false
-  defstruct status: nil, headers: []
+  defstruct status: nil, headers: [], data: ""
 end
 
 defmodule Terminus.HTTPError do

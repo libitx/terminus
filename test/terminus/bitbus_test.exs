@@ -3,14 +3,15 @@ defmodule Terminus.BitbusTest do
   alias Terminus.Bitbus
 
 
-  describe "Bitbus.crawl/3 with valid token" do
+  describe "Bitbus.crawl/3" do
     test "must return a stream" do
-      res = Bitbus.crawl(%{"q" => "test"}, token: "test", host: "127.0.0.1")
-      assert %Stream{} = res
+      {:ok, res} = Bitbus.crawl(%{"q" => "test"}, token: "test", host: "127.0.0.1")
+      assert is_function(res)
+      assert inspect(res) |> String.match?(~r/Stream/)
     end
 
     test "must return a pid" do
-      res = Bitbus.crawl(%{"q" => "test"}, token: "test", host: "127.0.0.1", linked_stage: true)
+      {:ok, res} = Bitbus.crawl(%{"q" => "test"}, token: "test", host: "127.0.0.1", stage: true)
       assert is_pid(res)
     end
 
@@ -19,19 +20,41 @@ defmodule Terminus.BitbusTest do
         assert String.length(tx["tx"]["h"]) == 64
       end)
     end
+  end
 
-    @tag capture_log: true
-    test "must throw an error when no token" do
-      assert_raise Terminus.HTTPError, "HTTP Error: Forbidden", fn ->
-        Bitbus.crawl(%{"q" => "test"}, [host: "127.0.0.1"], &IO.inspect/1)
-      end
+
+  describe "Bitbus.crawl!/3" do
+    test "must return a stream" do
+      res = Bitbus.crawl!(%{"q" => "test"}, token: "test", host: "127.0.0.1")
+      assert is_function(res)
+      assert inspect(res) |> String.match?(~r/Stream/)
+    end
+
+    test "must return a pid" do
+      res = Bitbus.crawl!(%{"q" => "test"}, token: "test", host: "127.0.0.1", stage: true)
+      assert is_pid(res)
     end
   end
 
 
-  describe "Bitbus.crawl!/2" do
-    test "must return data when valid token" do
-      res = Bitbus.crawl!(%{"q" => "test"}, token: "test", host: "127.0.0.1")
+  describe "Bitbus.fetch/2" do
+    test "must return an enumerable" do
+      {:ok, res} = Bitbus.fetch(%{"q" => "test"}, token: "test", host: "127.0.0.1")
+      assert is_list(res)
+      assert length(res) == 5
+    end
+
+    @tag capture_log: true
+    test "must return an error when no token" do
+      {:error, reason} = Bitbus.fetch(%{"q" => "test"}, host: "127.0.0.1")
+      assert reason == "HTTP Error: Forbidden"
+    end
+  end
+
+
+  describe "Bitbus.fetch!/2" do
+    test "must return an enumerable" do
+      res = Bitbus.fetch!(%{"q" => "test"}, token: "test", host: "127.0.0.1")
       assert is_list(res)
       assert length(res) == 5
     end
@@ -39,7 +62,7 @@ defmodule Terminus.BitbusTest do
     @tag capture_log: true
     test "must throw an error when no token" do
       assert_raise Terminus.HTTPError, "HTTP Error: Forbidden", fn ->
-        Bitbus.crawl!(%{"q" => "test"}, host: "127.0.0.1")
+        Bitbus.fetch!(%{"q" => "test"}, host: "127.0.0.1")
       end
     end
   end
@@ -47,7 +70,18 @@ defmodule Terminus.BitbusTest do
 
   describe "Bitbus.status/1" do
     test "must return current status" do
-      res = Bitbus.status(host: "127.0.0.1")
+      {:ok, res} = Bitbus.status(host: "127.0.0.1")
+      assert Map.keys(res) |> length == 8
+      assert Map.keys(res) |> Enum.member?("hash")
+      assert Map.keys(res) |> Enum.member?("height")
+      assert Map.keys(res) |> Enum.member?("time")
+    end
+  end
+
+
+  describe "Bitbus.status!/1" do
+    test "must return current status" do
+      res = Bitbus.status!(host: "127.0.0.1")
       assert Map.keys(res) |> length == 8
       assert Map.keys(res) |> Enum.member?("hash")
       assert Map.keys(res) |> Enum.member?("height")
