@@ -62,7 +62,7 @@ defmodule Terminus.Bitsocket do
     do: crawl(query, [], options)
 
   def crawl(%{} = query, options, ondata),
-    do: Jason.encode!(query) |> crawl(options, ondata)
+    do: query |> normalize_query |> Jason.encode! |> crawl(options, ondata)
 
   def crawl(query, options, ondata) when is_binary(query) do
     options = Keyword.put_new(options, :chunker, :ndjson)
@@ -227,7 +227,7 @@ defmodule Terminus.Bitsocket do
     do: listen(query, [], options)
 
   def listen(%{} = query, options, ondata),
-    do: Jason.encode!(query) |> listen(options, ondata)
+    do: query |> normalize_query |> Jason.encode! |> listen(options, ondata)
 
   def listen(query, options, ondata) when is_binary(query) do
     options = Keyword.put_new(options, :chunker, :eventsource)

@@ -61,7 +61,7 @@ defmodule Terminus.Bitbus do
     do: crawl(query, [], options)
 
   def crawl(%{} = query, options, ondata),
-    do: Jason.encode!(query) |> crawl(options, ondata)
+    do: query |> normalize_query |> Jason.encode! |> crawl(options, ondata)
 
   def crawl(query, options, ondata) when is_binary(query) do
     options = Keyword.put_new(options, :chunker, :ndjson)

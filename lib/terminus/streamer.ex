@@ -24,6 +24,11 @@ defmodule Terminus.Streamer do
       @doc false
       def handle_callback(stream, ondata),
         do: Streamer.handle_callback(stream, ondata)
+
+      @doc false
+      def normalize_query(query),
+        do: Streamer.normalize_query(query)
+
       
     end
   end
@@ -83,6 +88,18 @@ defmodule Terminus.Streamer do
         {:error, error}
     end
   end
+
+
+  @doc """
+  TODO
+  """
+  def normalize_query(%{find: _} = query),
+    do: %{v: 3, q: query}
+
+  def normalize_query(%{"find" => _} = query),
+    do: %{v: 3, q: query}
+
+  def normalize_query(%{} = query), do: query
 
 
   # TODO
