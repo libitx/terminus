@@ -183,11 +183,6 @@ defmodule Terminus do
 end
 
 
-defmodule Terminus.Message do
-  @moduledoc false
-  defstruct id: nil, event: "message", data: ""
-end
-
 defmodule Terminus.Response do
   @moduledoc false
   defstruct status: nil, headers: [], data: ""

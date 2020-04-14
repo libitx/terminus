@@ -1,16 +1,31 @@
 defmodule Terminus.Chunker do
   @moduledoc """
-  TODO
+  Module for reducing data chunks from streaming HTTP requests into structured
+  data messages.
   """
-  alias Terminus.Message
+  defmodule Message do
+    @moduledoc false
+    defstruct id: nil, event: "message", data: ""
+  end
+
   
   @doc """
-  TODO
-  """
-  def handle_chunk(nil, data), do: handle_chunk(:raw, data)
-  def handle_chunk(:raw, data), do: {[data], ""}
+  Handles the conversion of the given binary data chunk into a list of one or
+  more structured types.
 
-  def handle_chunk(:ndjson, data) do
+  Returns a tuple containing a list of events and a binary of any remaining data.
+
+  ## Examples
+
+      iex> "{\"foo\":\"bar\"}\n{\"foo\":\"bar\"}\n{\"fo"
+      ...> |> Terminus.Chunker.handle_chunk(:ndjson)
+      {[%{"foo" => "bar"}, %{"foo" => "bar"}], "{\"fo"}
+  """
+  @spec handle_chunk(binary, atom) :: {list, binary}
+  def handle_chunk(data, nil), do: handle_chunk(data, :raw)
+  def handle_chunk(data, :raw), do: {[data], ""}
+
+  def handle_chunk(data, :ndjson) do
     events = data
     |> String.split("\n")
     |> Enum.reject(& is_nil(&1) || &1 == "")
@@ -27,7 +42,7 @@ defmodule Terminus.Chunker do
     {events, data}
   end
 
-  def handle_chunk(:eventsource, data) do
+  def handle_chunk(data, :eventsource) do
     {events, data} = if String.ends_with?(data, "\n") do
       events = data
       |> String.split("\n")
@@ -46,7 +61,7 @@ defmodule Terminus.Chunker do
   end
 
 
-  # TODO
+  # Parses a SSE Messages from the list of strings
   defp parse_sse_messages(["" | []], messages),
     do: parse_sse_messages([], messages)
 

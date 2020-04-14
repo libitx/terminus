@@ -143,7 +143,7 @@ defmodule Terminus.Request do
     do: {[], state}
 
   defp process_events(%__MODULE__{} = state) do
-    {events, data} = Chunker.handle_chunk(state.chunker, state.response.data)
+    {events, data} = Chunker.handle_chunk(state.response.data, state.chunker)
     {events, remaining} = Enum.split(state.events ++ events, state.demand)
 
     state = put_in(state.response.data, data)
