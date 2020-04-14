@@ -36,10 +36,18 @@ defmodule MockServer do
   get "/s/:query" do
     data = %{type: "push", data: [%{"tx" => %{"h" => "741bcaf3f5ec40a48d78fcc0314ce260547122e8f69c51cedbf9e56ec3388c35"}}]}
     chunk = %SSE.Chunk{data: Jason.encode!(data)}
-    conn = SSE.stream(conn, {[:test], chunk})
-    IO.puts "halt"
-    halt(conn)
+    SSE.stream(conn, {[:test], chunk})
+  end
 
+  # BitFS fetch
+  get "/13513153d455cdb394ce01b5238f36e180ea33a9ccdf5a9ad83973f2d423684a.out.0.4" do
+    body = File.read!("test/mocks/bitfs-fetch.json")
+    stream_resp(conn, 200, body)
+  end
+
+  # BitFS fetch 404
+  get "/notfound" do
+    stream_resp(conn, 404, "Not found")
   end
 
   

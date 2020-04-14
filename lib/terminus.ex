@@ -175,6 +175,11 @@ defmodule Terminus do
       IO.puts tx["tx"]["h"]
     end)
   end
+
+
+  def test_d1 do
+    Terminus.Bitbus.fetch(%{q: %{find: %{"tx.h" => "13513153d455cdb394ce01b5238f36e180ea33a9ccdf5a9ad83973f2d423684a"}}}, token: @token)
+  end
 end
 
 

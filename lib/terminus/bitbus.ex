@@ -34,7 +34,7 @@ defmodule Terminus.Bitbus do
         find: %{ "out.s2" => "1LtyME6b5AnMopQrBPLk4FGN8UBuhxKqrn" }
       }
 
-  By default `Terminus.Bitbus.crawl/2` returns a streaming `t:Enumerable.t/0`.
+  By default `Terminus.Bitbus.crawl/3` returns a streaming `t:Enumerable.t/0`.
 
       iex> Terminus.Bitbus.crawl(query, token: token)
       {:ok, %Stream{}}
