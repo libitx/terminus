@@ -54,7 +54,6 @@ defmodule Terminus.Bitbus do
 
       iex> Terminus.Bitbus.crawl!(query, token: token)
       ...> |> Stream.map(&Terminus.BitFS.scan_tx/1)
-      ...> |> Stream.map(&transform_tx/1)
       ...> |> Stream.each(&save_to_db/1)
       ...> |> Stream.run
       :ok

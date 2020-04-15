@@ -1,14 +1,15 @@
 defmodule Terminus do
   @moduledoc """
   Terminus allows you to crawl and subscribe to Bitcoin transaction events using
-  [Bitbus](https://bitbus.network) and [Bitsocket](https://bitsocket.network).
+  [Bitbus](https://bitbus.network) and [Bitsocket](https://bitsocket.network),
+  and download binary data from [BitFS](https://bitfs.network).
 
   > **terminus** &mdash; noun
   > * the end of a railway or other transport route, or a station at such a point; a terminal.
   > * a final point in space or time; an end or extremity.
 
-  Terminus provides a single unified interface for crawling and querying both
-  Bitbus and Bitsocket in a highly performant manner. Each request is a `GenStage`
+  Terminus provides a single unified interface for crawling and querying Bitbus,
+  Bitsocket and BitFS in a highly performant manner. Each request is a `GenStage`
   process, enabling you to create powerful concurrent data flows. Terminus may
   well be the most powerful way of querying Bitcoin in the Universe!
 
@@ -62,7 +63,6 @@ defmodule Terminus do
 
       iex> Terminus.Bitbus.crawl!(query, token: token)
       ...> |> Stream.map(&Terminus.BitFS.scan_tx/1)
-      ...> |> Stream.map(&transform_tx/1)
       ...> |> Stream.each(&save_to_db/1)
       ...> |> Stream.run
       :ok
@@ -74,12 +74,11 @@ defmodule Terminus do
   advantage of Elixir's concurrency, by either using with your own `GenStage`
   consumers or using a tool like `Flow` to create powerful concurrent pipelines.
 
-      # One stream of transactions will be distributed across four concurrent
+      # One stream of transactions will be distributed across eight concurrent
       # processes for mapping and saving the data.
       iex> {:ok, pid} = Terminus.Bitbus.crawl(query, token: token, stage: true)
-      iex> Flow.from_stages([pid], stages: 4)
+      iex> Flow.from_stages([pid], stages: 8)
       ...> |> Flow.map(&Terminus.BitFS.scan_tx/1)
-      ...> |> Flow.map(&transform_tx/1)
       ...> |> Flow.map(&save_to_db/1)
       ...> |> Flow.run
       :ok
