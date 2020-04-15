@@ -9,6 +9,9 @@ defmodule Terminus.MixProject do
       elixirc_paths: elixirc_paths(Mix.env),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
+      name: "Terminus",
+      description: "Crawl and subscribe to Bitcoin transaction events using Bitbus, Bitsocket and BitFS.",
+      source_url: "https://github.com/libitx/terminus",
       docs: [
         main: "Terminus",
         groups_for_modules: [
@@ -18,6 +21,14 @@ defmodule Terminus.MixProject do
             Terminus.Streamer
           ]
         ]
+      ],
+      package: [
+        name: "terminus",
+        files: ~w(lib .formatter.exs mix.exs README.md LICENSE.md),
+        licenses: ["MIT"],
+        links: %{
+          "GitHub" => "https://github.com/libitx/terminus"
+        }
       ]
     ]
   end
