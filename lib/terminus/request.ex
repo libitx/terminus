@@ -1,6 +1,23 @@
 defmodule Terminus.Request do
   @moduledoc """
-  TODO
+  A `GenStage` producer module for creating streaming HTTP requests.
+
+  Each request is a GenStage process, enabling creating powerful concurrent
+  data flows.
+
+  ## Usage
+
+      # Create the connection process
+      iex> Terminus.Request.connect(:https, host, 443)
+      {:ok, pid}
+
+      # Begin a request
+      iex> Terminus.Request.request(pid, "GET", path, headers, body)
+      :ok
+
+      # Stream the result
+      iex> GenStage.stream([{pid, cancel: :transient}])
+      %Stream{}
   """
   use GenStage
   alias Mint.HTTP
@@ -8,6 +25,16 @@ defmodule Terminus.Request do
   require Logger
 
 
+  @typedoc "Streaming HTTP request state"
+  @type t :: %__MODULE__{
+    conn: map,
+    ref: String.t,
+    response: Response.t,
+    events: list,
+    demand: integer,
+    chunker: atom,
+    last_resp: atom
+  }
   defstruct conn: nil,
             ref: nil,
             response: %Response{},
@@ -18,8 +45,9 @@ defmodule Terminus.Request do
 
 
   @doc """
-  TODO
+  Creates a new connection to a given server and returns a GenStage [`pid`](`t:pid/0`).
   """
+  @spec connect(atom, String.t, integer, keyword) :: {:ok, pid} | {:error, String.t}
   def connect(scheme, host, port, opts \\ []) do
     case Keyword.get(opts, :stage) do
       true ->
@@ -31,9 +59,13 @@ defmodule Terminus.Request do
 
 
   @doc """
-  TODO
+  Sends a request to the connected server.
+
+  The function is asynchronous and returns `:ok`. The GenStage [`pid`](`t:pid/0`)
+  can be subscribed to to listen to streaming data chunks.
   """
-  def request(pid, method, path, headers, body, chunker) do
+  @spec request(pid, String.t, String.t, list, String.t | nil, atom) :: :ok
+  def request(pid, method, path, headers, body, chunker \\ :raw) do
     GenStage.cast(pid, {:request, method, path, headers, body, chunker})
   end
 
@@ -88,6 +120,8 @@ defmodule Terminus.Request do
     end
   end
 
+
+  @impl true
   def handle_info(message, state) do
     case HTTP.stream(state.conn, message) do
       :unknown ->
@@ -111,7 +145,7 @@ defmodule Terminus.Request do
   end
 
 
-  # TODO
+  # Processes the given response chunk and updates the state.
   defp process_response({:status, request_ref, status}, %__MODULE__{ref: ref} = state)
     when request_ref == ref
   do
@@ -138,7 +172,7 @@ defmodule Terminus.Request do
     do: put_in(state.last_resp, :done)
 
 
-  # TODO
+  # Processes the response data and chunks into events to provide to consumers.
   defp process_events(%__MODULE__{response: %Response{data: ""}} = state),
     do: {[], state}
 
@@ -152,18 +186,6 @@ defmodule Terminus.Request do
 
     {events, state}
   end
-
-
-
-
-  # TODO
-#  defp transform_chunks(%__MODULE__{chunker: nil} = state),
-#    do: Chunker.transform(state)
-#
-#  defp transform_chunks(%__MODULE__{chunker: chunker} = state)
-#    when is_atom(chunker),
-#    do: apply(chunker, :transform, [state])
-
 
 
   @impl true

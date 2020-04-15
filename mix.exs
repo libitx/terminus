@@ -10,7 +10,14 @@ defmodule Terminus.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       docs: [
-        main: "Terminus"
+        main: "Terminus",
+        groups_for_modules: [
+          "Internals": [
+            Terminus.Chunker,
+            Terminus.Request,
+            Terminus.Streamer
+          ]
+        ]
       ]
     ]
   end

@@ -1,6 +1,63 @@
 defmodule Terminus.Bitbus do
   @moduledoc """
-  TODO
+  Module for interfacing with the [Bitbus](https://bitbus.network) API.
+
+  Bitbus is a powerful API that allows you to crawl a filtered subset of the
+  Bitcoin blockchain. Bitbus indexes blocks, thus can be used to crawl
+  **confirmed** transactions.
+
+  > We run a highly efficient bitcoin crawler which indexes the bitcoin
+  > blockchain. Then we expose the index as an API so anyone can easily crawl
+  > ONLY the subset of bitcoin by crawling bitbus.
+
+  ## Schema
+
+  Bitbus transaction documents have the following schema:
+
+      %{
+        "_id" => "...",       # Bitbus document ID
+        "blk" => %{
+          "h" => "...",       # Block hash
+          "i" => int,         # Block height
+          "t" => int,         # Block timestamp
+        },
+        "in" => [...],        # List of inputs
+        "lock" => int,        # Lock time
+        "out" => [...],       # List of outputs
+        "tx" => %{
+          "h" => "..."        # Transaction hash
+        }
+      }
+
+  Transactions inputs and outputs are represented using the [TXO schema](https://bitquery.planaria.network/#/?id=txo).
+
+  ## Usage
+
+  For smaller queries of limited results, `fetch/2` can be used to return a list
+  of transactions:
+
+      iex> Terminus.Bitbus.fetch(%{
+      ...>   find: %{ "out.s2" => "1LtyME6b5AnMopQrBPLk4FGN8UBuhxKqrn" },
+      ...>   sort: %{ "blk.i": -1 },
+      ...>   limit: 5
+      ...> }, token: token)
+      {:ok, [
+        %{
+          "tx" => %{"h" => "fca7bdd7658613418c54872212811cf4c5b4f8ee16864eaf70cb1393fb0df6ca"},
+          ...
+        },
+        ...
+      ]}
+
+  For larger crawl operations, use `crawl/3` to stream results into your own
+  data processing pipeline.
+
+      iex> Terminus.Bitbus.crawl!(query, token: token)
+      ...> |> Stream.map(&Terminus.BitFS.scan_tx/1)
+      ...> |> Stream.map(&transform_tx/1)
+      ...> |> Stream.each(&save_to_db/1)
+      ...> |> Stream.run
+      :ok
   """
   use Terminus.Streamer, host: "txo.bitbus.network"
 
@@ -15,7 +72,7 @@ defmodule Terminus.Bitbus do
   GenStage [`pid`](`t:pid/0`) can be returned for using in combination with your
   own GenStage consumer.
 
-  If a [`callback`](`t:Terminus.callback/0`) is provided, the stream is
+  If a [`callback`](`t:Terminus.Streamer.callback/0`) is provided, the stream is
   automatically run and the callback is called on each transaction.
 
   ## Options
@@ -44,7 +101,7 @@ defmodule Terminus.Bitbus do
       iex> Terminus.Bitbus.crawl(query, token: token, stage: true)
       {:ok, #PID<>}
 
-  If a [`callback`](`t:Terminus.callback/0`) is provided, the function
+  If a [`callback`](`t:Terminus.Streamer.callback/0`) is provided, the function
   returns `:ok` and the callback is called on each transaction.
 
       iex> Terminus.Bitbus.crawl(query, [token: token], fn tx ->
@@ -52,7 +109,7 @@ defmodule Terminus.Bitbus do
       ...> end)
       :ok
   """
-  @spec crawl(map | String.t, keyword, function) ::
+  @spec crawl(map | String.t, keyword, Streamer.callback) ::
     {:ok, Enumerable.t | pid} | :ok |
     {:error, String.t}
   def crawl(query, options \\ [], ondata \\ nil)
@@ -82,7 +139,7 @@ defmodule Terminus.Bitbus do
   @doc """
   As `crawl/3` but returns the result or raises an exception if it fails.
   """
-  @spec crawl!(map | String.t, keyword, function) :: Enumerable.t | pid | :ok
+  @spec crawl!(map | String.t, keyword, Streamer.callback) :: Enumerable.t | pid | :ok
   def crawl!(query, options \\ [], ondata \\ nil) do
     case crawl(query, options, ondata) do
       :ok -> :ok

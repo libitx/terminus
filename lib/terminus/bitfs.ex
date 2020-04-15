@@ -1,6 +1,46 @@
 defmodule Terminus.BitFS do
   @moduledoc """
-  TODO
+  Module for interfacing with the [BitFS](https://bitfs.network) API.
+
+  BitFS crawls the Bitcoin blockchain to find and store all the bitcoin script
+  pushdata chunks **larger than 512 bytes**.
+
+  > BitFS is an autonomous file system constructed from Bitcoin transactions.
+
+  ## BitFS URI scheme
+
+  Files are referenced using the [BitFS URI scheme](https://bitfs.network/about#urischeme).
+
+      # bitfs://<TRANSACTION_ID>.(in|out).<SCRIPT_INDEX>.<CHUNK_INDEX>
+      "bitfs://13513153d455cdb394ce01b5238f36e180ea33a9ccdf5a9ad83973f2d423684a.out.0.4"
+
+  Terminus accepts given BitFS URI strings with or without the `bitfs://` prefix.
+
+  ## Usage
+
+  To simply return the binary data for any BitFS URI use `fetch/2`.
+
+      iex> Terminus.BitFS.fetch(uri)
+      {:ok, <<...>>}
+
+  It is also possible to scan entire transactions and automatically fetch the
+  binary data for any BitFS URIs discovered in the transaction. The binary data
+  is added to the same output script at the same index with a `d` prefixed attribute.
+
+      iex> tx = %{
+      ...>   "out" => [%{
+      ...>     "f4" => "13513153d455cdb394ce01b5238f36e180ea33a9ccdf5a9ad83973f2d423684a.out.0.4",
+      ...>     ...
+      ...>   }]
+      ...> }
+      iex> Terminus.BitFS.scan_tx(tx)
+      %{
+        "out" => [%{
+          "f4" => "13513153d455cdb394ce01b5238f36e180ea33a9ccdf5a9ad83973f2d423684a.out.0.4",
+          "d4" => <<...>>,
+          ...
+        }]
+      }
   """
   use Terminus.Streamer, host: "x.bitfs.network"
 

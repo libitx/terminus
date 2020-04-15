@@ -3,10 +3,7 @@ defmodule Terminus.Chunker do
   Module for reducing data chunks from streaming HTTP requests into structured
   data messages.
   """
-  defmodule Message do
-    @moduledoc false
-    defstruct id: nil, event: "message", data: ""
-  end
+  alias Terminus.Message
 
   
   @doc """
@@ -17,9 +14,9 @@ defmodule Terminus.Chunker do
 
   ## Examples
 
-      iex> "{\"foo\":\"bar\"}\n{\"foo\":\"bar\"}\n{\"fo"
+      iex> "{\\"foo\\":\\"bar\\"}\\n{\\"foo\\":\\"bar\\"}\\n{\\"fo"
       ...> |> Terminus.Chunker.handle_chunk(:ndjson)
-      {[%{"foo" => "bar"}, %{"foo" => "bar"}], "{\"fo"}
+      {[%{"foo" => "bar"}, %{"foo" => "bar"}], "{\\"fo"}
   """
   @spec handle_chunk(binary, atom) :: {list, binary}
   def handle_chunk(data, nil), do: handle_chunk(data, :raw)
