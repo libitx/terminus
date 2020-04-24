@@ -112,16 +112,9 @@ defmodule Terminus.Request do
 
 
   @impl true
-  def handle_info(_message, %__MODULE__{last_resp: :done} = state) do
-    if state.response.status in 200..299 do
-      {:stop, :normal, state}
-    else
-      {:stop, %HTTPError{status: state.response.status}, state}
-    end
-  end
+  def handle_info(_message, %__MODULE__{last_resp: :done} = state),
+    do: process_end(state)
 
-
-  @impl true
   def handle_info(message, state) do
     case HTTP.stream(state.conn, message) do
       :unknown ->
@@ -132,7 +125,15 @@ defmodule Terminus.Request do
         state = put_in(state.conn, conn)
         {events, state} = Enum.reduce(responses, state, &process_response/2)
         |> process_events
-        {:noreply, events, state}
+
+        case {events, state} do
+          {[], %{last_resp: :done}} ->
+            process_end(state)
+          {[], %{conn: %{state: :closed}}} ->
+            process_end(state)
+          _ ->
+            {:noreply, events, state}
+        end
 
       {:error, conn, %Mint.TransportError{reason: :closed}, _responses} ->
         state = put_in(state.conn, conn)
@@ -167,6 +168,13 @@ defmodule Terminus.Request do
     |> Map.put(:last_resp, :data)
   end
 
+  defp process_response({:error, request_ref, reason}, %__MODULE__{ref: ref} = state)
+    when request_ref == ref
+  do
+    Logger.error "Request error: #{ inspect reason }"
+    put_in(state.last_resp, :error)
+  end
+
   defp process_response({:done, request_ref}, %__MODULE__{ref: ref} = state)
     when request_ref == ref,
     do: put_in(state.last_resp, :done)
@@ -185,6 +193,15 @@ defmodule Terminus.Request do
     |> Map.put(:demand, state.demand - length(events))
 
     {events, state}
+  end
+
+
+  defp process_end(%__MODULE__{response: response} = state) do
+    if response.status in 200..299 do
+      {:stop, :normal, state}
+    else
+      {:stop, %HTTPError{status: state.response.status}, state}
+    end
   end
 
 

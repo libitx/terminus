@@ -24,8 +24,8 @@ defmodule Terminus.Streamer do
   @type callback :: function | nil
 
 
-  @scheme Application.get_env(:terminus, :scheme)
-  @port Application.get_env(:terminus, :port)
+  @scheme Application.get_env(:terminus, :scheme, :https)
+  @port Application.get_env(:terminus, :port, 443)
   @headers [
     {"content-type", "application/json"}
   ]
@@ -144,10 +144,10 @@ defmodule Terminus.Streamer do
   """
   @spec normalize_query(map) :: map
   def normalize_query(%{find: _} = query),
-    do: %{v: 3, q: query}
+    do: %{"v" => 3, "q" => query}
 
   def normalize_query(%{"find" => _} = query),
-    do: %{v: 3, q: query}
+    do: %{"v" => 3, "q" => query}
 
   def normalize_query(%{} = query), do: query
 
