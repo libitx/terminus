@@ -25,7 +25,6 @@ defmodule Terminus.Planaria do
                                from: 600000,
                                query: @query
 
-        @impl true
         def handle_data(:block, txns) do
           # Handle confirmed transactions
         end
@@ -126,13 +125,13 @@ defmodule Terminus.Planaria do
 
       def handle_data(:block, txns) do
         txns
-        |> Enum.each(&MyApp.Transaction.build/1)
+        |> Enum.map(&MyApp.Transaction.build/1)
         |> Repo.insert(on_conflict: :replace_all, conflict_target: :txid)
       end
 
       def handle_data(:mempool, txns) do
         txns
-        |> Enum.each(&MyApp.Transaction.build/1)
+        |> Enum.map(&MyApp.Transaction.build/1)
         |> Repo.insert
       end
   """
