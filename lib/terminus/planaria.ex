@@ -201,8 +201,7 @@ defmodule Terminus.Planaria do
       end
 
       @doc false
-      def handle_data(type, txns),
-        do: Logger.debug inspect({type, length(txns)})
+      def handle_data(type, txns), do: true
 
       @doc false
       def handle_tape(:type, tape), do: {:ok, tape}
@@ -243,7 +242,7 @@ defmodule Terminus.Planaria do
   @impl true
   def init({module, config}) do
     state = %__MODULE__{mod: module}
-    |> Map.update!(:config, & Map.merge(&1, struct(Config, config)))
+    |> Map.update!(:config, & Map.merge(&1, Enum.into(config, %{})))
 
     tape = state.tape
     |> Map.put(:head, state.config.from)
