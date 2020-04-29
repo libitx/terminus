@@ -201,10 +201,10 @@ defmodule Terminus.Planaria do
       end
 
       @doc false
-      def handle_data(type, txns), do: true
+      def handle_data(_type, _txns), do: true
 
       @doc false
-      def handle_tape(:type, tape), do: {:ok, tape}
+      def handle_tape(_type, tape), do: {:ok, tape}
 
 
       defoverridable handle_tape: 2, handle_data: 2
