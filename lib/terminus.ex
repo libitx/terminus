@@ -121,4 +121,8 @@ defmodule Terminus do
 
   @typedoc "On-data callback function."
   @type callback :: function
+
+  @typedoc "Hex-encoded transaction ID."
+  @type txid :: function
+
 end

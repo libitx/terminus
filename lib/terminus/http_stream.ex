@@ -187,11 +187,31 @@ defmodule Terminus.HTTPStream do
   """
   @spec normalize_query(map) :: map
   def normalize_query(%{find: _} = query),
-    do: %{"v" => 3, "q" => query}
+    do: normalize_query(%{"q" => query})
 
   def normalize_query(%{"find" => _} = query),
-    do: %{"v" => 3, "q" => query}
+    do: normalize_query(%{"q" => query})
 
-  def normalize_query(%{} = query), do: query
+  def normalize_query(%{"q" => _} = query),
+    do: stringify_keys(query)
+
+
+  # Convert map atom keys to strings
+  defp stringify_keys(%{} = map) do
+    map
+    |> Enum.map(&stringify_keys/1)
+    |> Enum.into(%{})
+  end
+
+  defp stringify_keys({k, v}) when is_atom(k),
+    do: {Atom.to_string(k), stringify_keys(v)}
+  
+  defp stringify_keys({k, v}) when is_binary(k),
+    do: {k, stringify_keys(v)}
+
+  defp stringify_keys([head | rest]),
+     do: [stringify_keys(head) | stringify_keys(rest)]
+
+  defp stringify_keys(val), do: val
 
 end

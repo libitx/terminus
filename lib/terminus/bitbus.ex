@@ -165,7 +165,7 @@ defmodule Terminus.Bitbus do
   @doc """
   As `crawl/3` but returns the result or raises an exception if it fails.
   """
-  @spec crawl!(Terminus.bitquery | String.t, keyword, Terminus.callback) ::
+  @spec crawl!(Terminus.bitquery, keyword, Terminus.callback) ::
     Enumerable.t | pid | :ok
   def crawl!(query, options \\ [], ondata \\ nil) do
     case crawl(query, options, ondata) do
@@ -228,7 +228,7 @@ defmodule Terminus.Bitbus do
   @doc """
   As `fetch/2` but returns the result or raises an exception if it fails.
   """
-  @spec fetch!(Terminus.bitquery | String.t, keyword) :: list
+  @spec fetch!(Terminus.bitquery, keyword) :: list
   def fetch!(query, options \\ []) do    
     case fetch(query, options) do
       {:ok, data} ->
