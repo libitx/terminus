@@ -65,8 +65,31 @@ defmodule Terminus.Bitsocket do
         },
         ...
       ]}
+
+  ### Endpoints
+
+  Terminus supports both of the Bitsocket public enpoints. The endpoint can be
+  selected by passing the `:host` option to any API method.
+  
+  The available endpoints are:
+
+  * `:txo` - Query and return transactions in the Transaction Object schema. Default.
+  * `:bob` - Query and return transactions in the Bitcoin OP_RETURN Bytecode schema.
+
+      # By default the TXO endpoint is used
+      iex> Terminus.crawl(query, token: token)
+
+      # Optionally use the BOB endpoint
+      iex> Terminus.crawl(query, host: :bob, token: token)
   """
-  use Terminus.Streamer, host: "txo.bitsocket.network"
+  use Terminus.HTTPStream,
+    hosts: [
+      txo: "https://txo.bitsocket.network",
+      bob: "https://bob.bitsocket.network"
+    ],
+    headers: [
+      {"cache-control", "no-cache"}
+    ]
 
 
   @doc """
@@ -80,7 +103,7 @@ defmodule Terminus.Bitsocket do
   GenStage [`pid`](`t:pid/0`) can be returned for using in combination with your
   own GenStage consumer.
 
-  If a [`callback`](`t:Terminus.Streamer.callback/0`) is provided, the stream is
+  If a [`callback`](`t:Terminus.callback/0`) is provided, the stream is
   automatically run and the callback is called on each transaction.
 
   ## Options
@@ -109,7 +132,7 @@ defmodule Terminus.Bitsocket do
       iex> Terminus.Bitsocket.crawl(query, token: token, stage: true)
       {:ok, #PID<>}
 
-  If a [`callback`](`t:Terminus.Streamer.callback/0`) is provided, the function
+  If a [`callback`](`t:Terminus.callback/0`) is provided, the function
   returns `:ok` and the callback is called on each transaction.
 
       iex> Terminus.Bitsocket.crawl(query, [token: token], fn tx ->
@@ -117,9 +140,9 @@ defmodule Terminus.Bitsocket do
       ...> end)
       :ok
   """
-  @spec crawl(map | String.t, keyword, Streamer.callback) ::
+  @spec crawl(Terminus.bitquery, keyword, Terminus.callback) ::
     {:ok, Enumerable.t | pid} | :ok |
-    {:error, String.t}
+    {:error, Exception.t}
   def crawl(query, options \\ [], ondata \\ nil)
 
   def crawl(query, options, nil) when is_function(options),
@@ -129,9 +152,13 @@ defmodule Terminus.Bitsocket do
     do: query |> normalize_query |> Jason.encode! |> crawl(options, ondata)
 
   def crawl(query, options, ondata) when is_binary(query) do
-    options = Keyword.put_new(options, :chunker, :ndjson)
+    options = options
+    |> Keyword.take([:token, :host, :stage])
+    |> Keyword.put(:headers, [{"content-type", "application/json"}])
+    |> Keyword.put(:body, query)
+    |> Keyword.put(:decoder, :ndjson)
 
-    case stream("POST", "/crawl", query, options) do
+    case request(:stream, "POST", "/crawl", options) do
       {:ok, pid} when is_pid(pid) ->
         {:ok, pid}
 
@@ -147,7 +174,8 @@ defmodule Terminus.Bitsocket do
   @doc """
   As `crawl/3` but returns the result or raises an exception if it fails.
   """
-  @spec crawl!(map | String.t, keyword, Streamer.callback) :: Enumerable.t | pid | :ok
+  @spec crawl!(Terminus.bitquery, keyword, Terminus.callback) ::
+    Enumerable.t | pid | :ok
   def crawl!(query, options \\ [], ondata \\ nil) do
     case crawl(query, options, ondata) do
       :ok -> :ok
@@ -189,42 +217,32 @@ defmodule Terminus.Bitsocket do
           ...
         ]
   """
-  @spec fetch(map | String.t, keyword) :: {:ok, list} | {:error, String.t}
-  def fetch(query, options \\ []) do
-    options = Keyword.drop(options, [:stage])
+  @spec fetch(Terminus.bitquery, keyword) ::
+    {:ok, list} |
+    {:error, Exception.t}
+  def fetch(query, options \\ [])
 
-    case crawl(query, options) do
-      {:ok, stream} ->
-        try do
-          {:ok, Enum.to_list(stream)}
-        catch
-          :exit, {%HTTPError{} = error, _} ->
-            {:error, HTTPError.message(error)}
+  def fetch(%{} = query, options),
+    do: query |> normalize_query |> Jason.encode! |> fetch(options)
 
-          :exit, {error, _} ->
-            {:error, error}
-        end
+  def fetch(query, options) do
+    options = Keyword.take(options, [:token, :host])
+    |> Keyword.put(:headers, [{"content-type", "application/json"}])
+    |> Keyword.put(:body, query)
+    |> Keyword.put(:decoder, :ndjson)
 
-      {:error, error} ->
-        {:error, error}
-    end
+    request(:fetch, "POST", "/crawl", options)
   end
 
 
   @doc """
   As `fetch/2` but returns the result or raises an exception if it fails.
   """
-  @spec fetch!(map | String.t, keyword) :: list
+  @spec fetch!(Terminus.bitquery, keyword) :: list
   def fetch!(query, options \\ []) do
-    options = Keyword.drop(options, [:stage])
-    case crawl(query, options) do
-      {:ok, stream} ->
-        try do
-          Enum.to_list(stream)
-        catch
-          :exit, {error, _} ->
-            raise error
-        end
+    case fetch(query, options) do
+      {:ok, data} ->
+        data
 
       {:error, error} ->
         raise error
@@ -242,7 +260,7 @@ defmodule Terminus.Bitsocket do
   GenStage [`pid`](`t:pid/0`) can be returned for using in combination with your
   own GenStage consumer.
 
-  If a [`callback`](`t:Terminus.Streamer.callback/0`) is provided, the stream is
+  If a [`callback`](`t:Terminus.callback/0`) is provided, the stream is
   automatically run and the callback is called on each transaction.
 
   As Bitsocket streams transactions using [Server Sent Events](https://en.wikipedia.org/wiki/Server-sent_events),
@@ -255,6 +273,7 @@ defmodule Terminus.Bitsocket do
 
   * `host` - The Bitsocket host. Defaults to `txo.bitsocket.network`.
   * `stage` - Return a linked GenStage [`pid`](`t:pid/0`) instead of a stream.
+  * `recycle` - Number of seconds after which to recycle to a quiet Bitsocket request. Defaults to `900`.
 
   ## Examples
 
@@ -274,7 +293,7 @@ defmodule Terminus.Bitsocket do
       iex> Terminus.Bitsocket.listen(query, token: token, stage: true)
       {:ok, #PID<>}
 
-  If a [`callback`](`t:Terminus.Streamer.callback/0`) is provided, the stream returns `:ok`
+  If a [`callback`](`t:Terminus.callback/0`) is provided, the stream returns `:ok`
   and the callback is called on each transaction.
 
       iex> Terminus.Bitsocket.listen(query, [token: token], fn tx ->
@@ -282,9 +301,9 @@ defmodule Terminus.Bitsocket do
       ...> end)
       :ok
   """
-  @spec listen(map | String.t, keyword, Streamer.callback) ::
+  @spec listen(Terminus.bitquery, keyword, Terminus.callback) ::
     {:ok, Enumerable.t | pid} | :ok |
-    {:error, String.t}
+    {:error, Exception.t}
   def listen(query, options \\ [], ondata \\ nil)
 
   def listen(query, options, nil) when is_function(options),
@@ -294,10 +313,15 @@ defmodule Terminus.Bitsocket do
     do: query |> normalize_query |> Jason.encode! |> listen(options, ondata)
 
   def listen(query, options, ondata) when is_binary(query) do
-    options = Keyword.put_new(options, :chunker, :eventsource)
     path = "/s/" <> Base.encode64(query)
+    recycle_after = Keyword.get(options, :recycle, 900)
+    options = options
+    |> Keyword.take([:token, :host, :stage])
+    |> Keyword.put(:headers, [{"accept", "text/event-stream"}])
+    |> Keyword.put(:decoder, :eventsource)
+    |> Keyword.put(:recycle_after, recycle_after)
 
-    case stream("GET", path, nil, options) do
+    case request(:stream, "GET", path, options) do
       {:ok, pid} when is_pid(pid) ->
         {:ok, pid}
 
@@ -313,7 +337,7 @@ defmodule Terminus.Bitsocket do
   @doc """
   As `listen/3` but returns the result or raises an exception if it fails.
   """
-  @spec listen!(map | String.t, keyword) :: Enumerable.t | pid | :ok
+  @spec listen!(Terminus.bitquery, keyword) :: Enumerable.t | pid | :ok
   def listen!(query, options \\ []) do
     case listen(query, options) do
       :ok -> :ok

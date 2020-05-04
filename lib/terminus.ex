@@ -66,6 +66,35 @@ defmodule Terminus do
       ...> |> Stream.each(&save_to_db/1)
       ...> |> Stream.run
       :ok
+  
+  ### Planaria
+
+  Using `Terminus.Planaria` inside a module allows you to simply recreate
+  [Planaria](https://neon.planaria.network)-like state machine functionality.
+
+  Planarias can be started under your app's supervision tree, allowing multiple
+  Planaria processes to run concurrently.
+
+      defmodule TwetchScraper do
+        @query %{
+          "find" => %{
+            "out.s2": "19HxigV4QyBv3tHpQVcUEQyq1pzZVdoAut",
+            "out.s25": "twetch"
+          }
+        }
+
+        use Terminus.Planaria, token: Application.get_env(:my_app, :token),
+                               from: 600000,
+                               query: @query
+
+        def handle_data(:block, txns) do
+          # Handle confirmed transactions
+        end
+
+        def handle_data(:mempool, txns) do
+          # Handle unconfirmed transactions
+        end
+      end
 
   ### Concurrency
 
@@ -83,32 +112,13 @@ defmodule Terminus do
       ...> |> Flow.run
       :ok
   """
-end
 
+  @typedoc "Bitcoin data query language."
+  @type bitquery :: map | String.t
 
-defmodule Terminus.Response do
-  @moduledoc false
-  @type t :: %__MODULE__{
-    status: integer,
-    headers: list,
-    data: binary
-  }
-  defstruct status: nil, headers: [], data: ""
-end
+  @typedoc "BitFS URI scheme."
+  @type bitfs_uri :: String.t
 
-defmodule Terminus.Message do
-  @moduledoc false
-  @type t :: %__MODULE__{
-    id: String.t,
-    event: String.t,
-    data: binary
-  }
-  defstruct id: nil, event: "message", data: ""
-end
-
-defmodule Terminus.HTTPError do
-  @moduledoc false
-  defexception [:status]
-  def message(exception),
-    do: "HTTP Error: #{:httpd_util.reason_phrase(exception.status)}"
+  @typedoc "On-data callback function."
+  @type callback :: function
 end

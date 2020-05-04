@@ -45,9 +45,11 @@ defmodule Terminus.Planaria do
   options are accepted:
 
   * `:token` - Planaria Token. Required.
+  * `:host` - The Bitbus/Bitsocket endpoint to use. Defaults to `:txo`.
   * `:from` - The block height from which to crawl for transactions. Required.
   * `:query` - Full or shorthand [Bitquery](https://bitquery.planaria.network) map.
   * `:poll` - Interval (in seconds) to poll Bitbus for new blocks. Defaults to `300` (5 minutes).
+  * `:recycle` - Interval (in seconds) to recycle quiet Bitsocket requests. Defaults to `900` (15 minutes).
 
   ## Supervision
 
@@ -75,8 +77,14 @@ defmodule Terminus.Planaria do
   defstruct mod: nil,
             crawl_sub: nil,
             listen_sub: nil,
-            tape: %{head: 0, height: 0},
-            config: %{poll: 300, query: %{}}
+            tape: %{
+              head: 0,
+              height: 0
+            },
+            config: %{
+              poll: 300,
+              query: %{}
+            }
 
 
   @typedoc "Planaria state."
@@ -265,11 +273,14 @@ defmodule Terminus.Planaria do
     Logger.info "#{ state.mod } starting crawl from #{ tape.head }"
 
     query = config.query
-    |> Terminus.Streamer.normalize_query
+    |> Terminus.HTTPStream.normalize_query
     |> update_in(["q", "find"], & default_find_params(&1, tape))
     |> update_in(["q", "sort"], &default_sort_params/1)
 
-    case Bitbus.crawl(query, token: config.token, stage: true) do
+    options = [token: config.token, stage: true]
+    |> Keyword.put(:host, Map.get(config, :host, :txo))
+
+    case Bitbus.crawl(query, options) do
       {:ok, pid} ->
         GenStage.async_subscribe(self(), to: pid, cancel: :transient, mode: :crawl)
         {:noreply, [], state}
@@ -283,9 +294,13 @@ defmodule Terminus.Planaria do
     Logger.info "#{ state.mod } starting listen"
 
     query = config.query
-    |> Terminus.Streamer.normalize_query
+    |> Terminus.HTTPStream.normalize_query
 
-    case Bitsocket.listen(query, stage: true) do
+    options = [stage: true]
+    |> Keyword.put(:host, Map.get(config, :host, :txo))
+    |> Keyword.put(:recycle, Map.get(config, :recycle, 900))
+
+    case Bitsocket.listen(query, options) do
       {:ok, pid} ->
         GenStage.async_subscribe(self(), to: pid, mode: :listen)
         {:noreply, [], state}
@@ -296,14 +311,14 @@ defmodule Terminus.Planaria do
   end
 
 
-  # TODO
+  # Put default find query params
   defp default_find_params(nil, %{} = tape),
     do: %{"blk.i" => %{"$gt" => tape.head}}
   defp default_find_params(%{} = find, %{} = tape),
     do: Map.put(find, "blk.i", %{"$gt" => tape.head})
 
 
-  # TODO
+  # Put default sort query params
   defp default_sort_params(nil),
     do: %{"blk.i" => 1}
   defp default_sort_params(%{} = sort),
@@ -357,7 +372,7 @@ defmodule Terminus.Planaria do
     do: process_events(events, :mempool, state)
 
 
-  # TODO
+  # Send events to the handle_data callbacks
   defp process_events(events, type, state) do
     apply(state.mod, :handle_data, [type, events])
     {:noreply, [], state}

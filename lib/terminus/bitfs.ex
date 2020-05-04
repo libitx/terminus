@@ -42,7 +42,7 @@ defmodule Terminus.BitFS do
         }]
       }
   """
-  use Terminus.Streamer, host: "x.bitfs.network"
+  use Terminus.HTTPStream, hosts: [bitfs: "https://x.bitfs.network"]
 
 
   @doc """
@@ -83,37 +83,22 @@ defmodule Terminus.BitFS do
       iex> Terminus.BitFS.fetch(uri, stage: true)
       {:ok, #PID<>}
   """
-  @spec fetch(String.t, keyword) :: {:ok, binary} | {:error, String.t}
+  @spec fetch(Terminus.bitfs_uri, keyword) :: {:ok, binary} | {:error, Exception.t}
   def fetch(uri, options \\ [])
 
   def fetch("bitfs://" <> uri, options),
     do: fetch(uri, options)
 
   def fetch(uri, options) when is_binary(uri) do
-    to_stream? = Keyword.get(options, :stream)
     path = "/" <> uri
+    options = Keyword.take(options, [:token, :host, :stream, :stage])
 
-    case stream("GET", path, nil, options) do
-      {:ok, res} ->
-        if is_pid(res) or to_stream? do
-          {:ok, res}
-        else
-          try do
-            data = res
-            |> Enum.to_list
-            |> Enum.join
-            {:ok, data}
-          catch
-            :exit, {%HTTPError{} = error, _} ->
-              {:error, HTTPError.message(error)}
-
-            :exit, {error, _} ->
-              {:error, error}
-          end
-        end
-
-      {:error, error} ->
-        {:error, error}
+    case Keyword.get(options, :stream, false) do
+      true ->
+        request(:stream, "GET", path, options)
+      
+      _ ->
+        request(:fetch, "GET", path, options)
     end
   end
 
@@ -121,30 +106,11 @@ defmodule Terminus.BitFS do
   @doc """
   As `fetch/2` but returns the result or raises an exception if it fails.
   """
-  @spec fetch!(String.t, keyword) :: binary
-  def fetch!(uri, options \\ [])
-
-  def fetch!("bitfs://" <> uri, options),
-    do: fetch!(uri, options)
-
-  def fetch!(uri, options) when is_binary(uri) do
-    to_stream? = Keyword.get(options, :stream)
-    path = "/" <> uri
-
-    case stream("GET", path, nil, options) do
-      {:ok, res} ->
-        if is_pid(res) or to_stream? do
-          res
-        else
-          try do
-            res
-            |> Enum.to_list
-            |> Enum.join
-          catch
-            :exit, {error, _} ->
-              raise error
-          end
-        end
+  @spec fetch!(Terminus.bitfs_uri, keyword) :: binary
+  def fetch!(uri, options \\ []) do
+    case fetch(uri, options) do
+      {:ok, data} ->
+        data
 
       {:error, error} ->
         raise error
@@ -156,11 +122,14 @@ defmodule Terminus.BitFS do
   Scans the given transaction [`map`](`t:map/0`) and fetches the data for any
   BitFS URI references.
 
-  Where a BitFS reference is found, the data is fetched and added to the same
-  script at the same index as the reference.
+  Handles both `txo` and `bob` schema scripts.
 
-  For example, if a BitFS reference is found at `f4`, that a new attribute `d4`
-  is added to the same script.
+  With `txo`, where a BitFS reference is found, the fetched data is added to the
+  script at the same index as the reference. For example, if a BitFS reference is found
+  at `f4`, that a new attribute `d4` is put into the script containing the data.
+
+  With `bob`, for any cell containing a BitFS reference, a new attribute `d`
+  is added to the cell containing the fetched data.
 
   ## Examples
 
@@ -191,25 +160,52 @@ defmodule Terminus.BitFS do
   Scans the given transaction script [`map`](`t:map/0`) and fetches the data for
   any BitFS URI references.
 
-  Where a BitFS reference is found, the data is fetched and added to the same
-  script at the same index as the reference.
+  Handles both `txo` and `bob` schema scripts.
+  
+  With `txo`, where a BitFS reference is found, the fetched data is added to the
+  script at the same index as the reference. For example, if a BitFS reference is found
+  at `f4`, that a new attribute `d4` is put into the script containing the data.
+
+  With `bob`, for any cell containing a BitFS reference, a new attribute `d`
+  is added to the cell containing the fetched data.
   """
-  # Handles TXO script
   @spec scan_script(map) :: map
+  # Handles TXO script
   def scan_script(%{"len" => len} = out) when is_integer(len) do
     Map.keys(out)
     |> Enum.filter(& Regex.match?(~r/^f\d+/, &1))
     |> Enum.reduce(out, &reduce_txo/2)
   end
 
+  # Handles BOB script
+  def scan_script(%{"tape" => tape} = out) when is_list(tape) do
+    tape = Enum.map(tape, &map_bob_cell/1)
+    put_in(out["tape"], tape)
+  end
 
-  # TODO
+  # Reduce TXO output
   defp reduce_txo(key, out) do
     [_, num] = String.split(key, "f")
     case fetch(out[key]) do
       {:ok, data} -> Map.put(out, "d"<>num, data)
       {:error, _} -> out
     end
+  end
+
+  # Map BOB cell
+  defp map_bob_cell(%{"cell" => params} = cell) do
+    params
+    |> Enum.filter(& Map.has_key?(&1, "f"))
+    |> Enum.reduce(cell, &reduce_bob/2)
+  end
+
+  # Reduce BOB cell
+  defp reduce_bob(%{"f" => uri, "i" => i} = params, cell) do
+    params = case fetch(uri) do
+      {:ok, data} -> Map.put(params, "d", data)
+      {:error, _} -> params
+    end
+    List.replace_at(cell["cell"], i, params)
   end
 
 end

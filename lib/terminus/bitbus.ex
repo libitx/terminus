@@ -57,8 +57,32 @@ defmodule Terminus.Bitbus do
       ...> |> Stream.each(&save_to_db/1)
       ...> |> Stream.run
       :ok
+  
+  ### Endpoints
+
+  Terminus supports both of the Bitbus public enpoints. The endpoint can be
+  selected by passing the `:host` option to any API method.
+  
+  The available endpoints are:
+
+  * `:txo` - Query and return transactions in the Transaction Object schema. Default.
+  * `:bob` - Query and return transactions in the Bitcoin OP_RETURN Bytecode schema.
+
+      # By default the TXO endpoint is used
+      iex> Terminus.crawl(query, token: token)
+
+      # Optionally use the BOB endpoint
+      iex> Terminus.crawl(query, host: :bob, token: token)
   """
-  use Terminus.Streamer, host: "txo.bitbus.network"
+  use Terminus.HTTPStream,
+    hosts: [
+      txo: "https://txo.bitbus.network",
+      bob: "https://bob.bitbus.network"
+    ],
+    headers: [
+      {"cache-control", "no-cache"},
+      {"content-type", "application/json"}
+    ]
 
 
   @doc """
@@ -71,7 +95,7 @@ defmodule Terminus.Bitbus do
   GenStage [`pid`](`t:pid/0`) can be returned for using in combination with your
   own GenStage consumer.
 
-  If a [`callback`](`t:Terminus.Streamer.callback/0`) is provided, the stream is
+  If a [`callback`](`t:Terminus.callback/0`) is provided, the stream is
   automatically run and the callback is called on each transaction.
 
   ## Options
@@ -79,7 +103,7 @@ defmodule Terminus.Bitbus do
   The accepted options are:
 
   * `token` - Planaria authentication token. **Required**.
-  * `host` - The Bitbus host. Defaults to `txo.bitbus.network`.
+  * `host` - The Bitbus host. Defaults to "https://txo.bitbus.network".
   * `stage` - Return a linked GenStage [`pid`](`t:pid/0`). Defaults to `false`.
 
   ## Examples
@@ -100,7 +124,7 @@ defmodule Terminus.Bitbus do
       iex> Terminus.Bitbus.crawl(query, token: token, stage: true)
       {:ok, #PID<>}
 
-  If a [`callback`](`t:Terminus.Streamer.callback/0`) is provided, the function
+  If a [`callback`](`t:Terminus.callback/0`) is provided, the function
   returns `:ok` and the callback is called on each transaction.
 
       iex> Terminus.Bitbus.crawl(query, [token: token], fn tx ->
@@ -108,9 +132,9 @@ defmodule Terminus.Bitbus do
       ...> end)
       :ok
   """
-  @spec crawl(map | String.t, keyword, Streamer.callback) ::
+  @spec crawl(Terminus.bitquery, keyword, Terminus.callback) ::
     {:ok, Enumerable.t | pid} | :ok |
-    {:error, String.t}
+    {:error, Exception.t}
   def crawl(query, options \\ [], ondata \\ nil)
 
   def crawl(query, options, nil) when is_function(options),
@@ -120,9 +144,12 @@ defmodule Terminus.Bitbus do
     do: query |> normalize_query |> Jason.encode! |> crawl(options, ondata)
 
   def crawl(query, options, ondata) when is_binary(query) do
-    options = Keyword.put_new(options, :chunker, :ndjson)
+    options = options
+    |> Keyword.take([:token, :host, :stage])
+    |> Keyword.put(:body, query)
+    |> Keyword.put(:decoder, :ndjson)
 
-    case stream("POST", "/block", query, options) do
+    case request(:stream, "POST", "/block", options) do
       {:ok, pid} when is_pid(pid) ->
         {:ok, pid}
 
@@ -138,7 +165,8 @@ defmodule Terminus.Bitbus do
   @doc """
   As `crawl/3` but returns the result or raises an exception if it fails.
   """
-  @spec crawl!(map | String.t, keyword, Streamer.callback) :: Enumerable.t | pid | :ok
+  @spec crawl!(Terminus.bitquery | String.t, keyword, Terminus.callback) ::
+    Enumerable.t | pid | :ok
   def crawl!(query, options \\ [], ondata \\ nil) do
     case crawl(query, options, ondata) do
       :ok -> :ok
@@ -167,7 +195,7 @@ defmodule Terminus.Bitbus do
   The accepted options are:
 
   * `token` - Planaria authentication token. **Required**.
-  * `host` - The Bitbus host. Defaults to `txo.bitbus.network`.
+  * `host` - The Bitbus host. Defaults to "https://txo.bitbus.network".
 
   ## Examples
 
@@ -180,42 +208,31 @@ defmodule Terminus.Bitbus do
           ...
         ]}
   """
-  @spec fetch(map | String.t, keyword) :: {:ok, list} | {:error, String.t}
-  def fetch(query, options \\ []) do
-    options = Keyword.drop(options, [:stage])
-    
-    case crawl(query, options) do
-      {:ok, stream} ->
-        try do
-          {:ok, Enum.to_list(stream)}
-        catch
-          :exit, {%HTTPError{} = error, _} ->
-            {:error, HTTPError.message(error)}
+  @spec fetch(Terminus.bitquery, keyword) ::
+    {:ok, list} |
+    {:error, Exception.t}
+  def fetch(query, options \\ [])
 
-          :exit, {error, _} ->
-            {:error, error}
-        end
+  def fetch(%{} = query, options),
+    do: query |> normalize_query |> Jason.encode! |> fetch(options)
 
-      {:error, error} ->
-        {:error, error}
-    end
+  def fetch(query, options) when is_binary(query) do
+    options = Keyword.take(options, [:token, :host])
+    |> Keyword.put(:body, query)
+    |> Keyword.put(:decoder, :ndjson)
+
+    request(:fetch, "POST", "/block", options)
   end
 
 
   @doc """
   As `fetch/2` but returns the result or raises an exception if it fails.
   """
-  @spec fetch!(map | String.t, keyword) :: list
-  def fetch!(query, options \\ []) do
-    options = Keyword.drop(options, [:stage])
-    case crawl(query, options) do
-      {:ok, stream} ->
-        try do
-          Enum.to_list(stream)
-        catch
-          :exit, {error, _} ->
-            raise error
-        end
+  @spec fetch!(Terminus.bitquery | String.t, keyword) :: list
+  def fetch!(query, options \\ []) do    
+    case fetch(query, options) do
+      {:ok, data} ->
+        data
 
       {:error, error} ->
         raise error
@@ -244,16 +261,13 @@ defmodule Terminus.Bitbus do
         "count" => 2193
       }}
   """
-  @spec status(keyword) :: {:ok, map} | {:error, String.t}
+  @spec status(keyword) :: {:ok, map} | {:error, Exception.t}
   def status(options \\ []) do
     options = Keyword.take(options, [:host])
 
-    case stream("GET", "/status", nil, options) do
-      {:ok, stream} ->
-        stream
-        |> Enum.to_list
-        |> Enum.join
-        |> Jason.decode
+    case request(:fetch, "GET", "/status", options) do
+      {:ok, body} ->
+        Jason.decode(body)
 
       {:error, error} ->
         {:error, error}

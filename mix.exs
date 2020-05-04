@@ -16,9 +16,9 @@ defmodule Terminus.MixProject do
         main: "Terminus",
         groups_for_modules: [
           "Internals": [
-            Terminus.Chunker,
-            Terminus.Request,
-            Terminus.Streamer
+            Terminus.HTTPStream,
+            Terminus.HTTP.Client,
+            Terminus.HTTP.Response
           ]
         ]
       ],
