@@ -1,12 +1,14 @@
 # Terminus
 
-Terminus is an Elixir library to help you crawl and subscribe to Bitcoin transaction events using [Bitbus](https://bitbus.network) and [Bitsocket](https://bitsocket.network), and download binary data from [BitFS](https://bitfs.network).
+![Terminus - Crawl and subscribe to Bitcoin transaction events using Bitbus, Bitsocket and BitFS.](https://github.com/libitx/terminus/raw/master/media/poster.jpg)
 
-> **terminus** &mdash; noun
-> * the end of a railway or other transport route, or a station at such a point; a terminal.
-> * a final point in space or time; an end or extremity.
+![Hex.pm](https://img.shields.io/hexpm/v/terminus?color=informational)
+![GitHub](https://img.shields.io/github/license/libitx/terminus?color=informational)
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/libitx/terminus/Elixir CI)
 
-Terminus provides a single unified interface for crawling and querying Bitbus, Bitsocket and BitFS in a highly performant manner. Each request is a `GenStage` process, enabling you to create powerful concurrent data flows. Terminus may well be the most powerful way of querying Bitcoin in the Universe!
+Terminus allows you to crawl and subscribe to Bitcoin transaction events and download binary data from transactions, using a combination of [Bitbus](https://bitbus.network) and [Bitsocket](https://bitsocket.network), and [BitFS](https://bitfs.network).
+
+Terminus provides a single unified interface for querying Planaria corp APIs in a highly performant manner. Each request is a `GenStage` process, enabling you to create powerful concurrent data flows. Terminus may well be the most powerful way of querying Bitcoin in the Universe!
 
 * [Full documentation](https://hexdocs.pm/terminus)
 
@@ -17,42 +19,22 @@ The package can be installed by adding `terminus` to your list of dependencies i
 ```elixir
 def deps do
   [
-    {:terminus, "~> 0.0.1"}
+    {:terminus, "~> 0.0.3"}
   ]
 end
 ```
 
-## Usage
+## Getting started
 
-Terminus can be used as a simple client for crawling and querying Bitbus and Bitsocket APIs, and fetching binary data from BitFS. For simple examples, refer to the [full documentation](https://hexdocs.pm/terminus).
+Terminus can be used as a simple API client, or a turbo-charged, concurrent multi-stream Bitcoin scraper on steroids. You decide.
 
-### Streams
-  
-Most Terminus functions return a streaming enumerable, allowing you to compose data processing pipelines and operations.
+The following documented modules, are the primary ways of using Terminus.
 
-```elixir
-iex> Terminus.Bitbus.crawl!(query, token: token)
-...> |> Stream.map(&Terminus.BitFS.scan_tx/1)
-...> |> Stream.each(&save_to_db/1)
-...> |> Stream.run
-:ok
-``` 
-
-### Concurrency
-
-Under the hood, each Terminus request is a `GenStage` producer process, and the bare `pid` can be returned. This allows you to take full advantage of Elixir's concurrency, by either using with your own `GenStage` consumers or using a tool like `Flow` to create powerful concurrent pipelines.
-
-```elixir
-# One stream of transactions will be distributed across eight concurrent
-# processes for mapping and saving the data.
-iex> {:ok, pid} = Terminus.Bitbus.crawl(query, token: token, stage: true)
-iex> Flow.from_stages([pid], stages: 8)
-...> |> Flow.map(&Terminus.BitFS.scan_tx/1)
-...> |> Flow.map(&transform_tx/1)
-...> |> Flow.map(&save_to_db/1)
-...> |> Flow.run
-:ok
-```
+* [`Terminus.Bitbus`](https://hexdocs.pm/terminus/Terminus.Bitbus.html) - functions for crawling and query confirmed Bitcoin transactions.
+* [`Terminus.Bitsocket`](https://hexdocs.pm/terminus/Terminus.Bitsocket.html) - query mempool transactions and listen to realtime transaction events.
+* [`Terminus.BitFS`](https://hexdocs.pm/terminus/Terminus.BitFS.html) - fetch binary data blobs embedded in Bitcoin transactions.
+* [`Terminus.Omni`](https://hexdocs.pm/terminus/Terminus.Omni.html) - conveniently fetch confirmed and mempool transactions together.
+* [`Terminus.Planaria`](https://hexdocs.pm/terminus/Terminus.Planaria.html) - run Bitcoin scraper processes under your application's supervision tree.
 
 ## License
 

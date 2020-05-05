@@ -1,19 +1,22 @@
 defmodule Terminus do
   @moduledoc """
-  Terminus allows you to crawl and subscribe to Bitcoin transaction events using
+  ![Terminus - Crawl and subscribe to Bitcoin transaction events using Bitbus, Bitsocket and BitFS.](https://github.com/libitx/terminus/raw/master/media/poster.jpg)
+
+  ![Hex.pm](https://img.shields.io/hexpm/v/terminus?color=informational)
+  ![GitHub](https://img.shields.io/github/license/libitx/terminus?color=informational)
+  ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/libitx/terminus/Elixir CI)
+
+  Terminus allows you to crawl and subscribe to Bitcoin transaction events and
+  download binary data from transactions, using a combination of
   [Bitbus](https://bitbus.network) and [Bitsocket](https://bitsocket.network),
-  and download binary data from [BitFS](https://bitfs.network).
+  and [BitFS](https://bitfs.network).
 
-  > **terminus** &mdash; noun
-  > * the end of a railway or other transport route, or a station at such a point; a terminal.
-  > * a final point in space or time; an end or extremity.
+  Terminus provides a single unified interface for querying Planaria corp APIs
+  in a highly performant manner. Each request is a `GenStage` process, enabling
+  you to create powerful concurrent data flows. Terminus may well be the most
+  powerful way of querying Bitcoin in the Universe!
 
-  Terminus provides a single unified interface for crawling and querying Bitbus,
-  Bitsocket and BitFS in a highly performant manner. Each request is a `GenStage`
-  process, enabling you to create powerful concurrent data flows. Terminus may
-  well be the most powerful way of querying Bitcoin in the Universe!
-
-  ## Apis
+  ## APIs
 
   Terminus can be used to interface with the following Planaria Corp APIs.
 
@@ -32,8 +35,9 @@ defmodule Terminus do
   ### Query language
 
   Both Bitbus and Bitsocket use the same MongoDB-like query language, known as
-  [Bitquery](https://bitquery.planaria.network). Terminus allows the optional
-  use of shorthand queries (just the `q` value).
+  [Bitquery](https://bitquery.planaria.network). Terminus fully supports both
+  the TXO (Transaction Object) and BOB (Bitcoin OP_RETURN Bytecode) schemas, and
+  allows the optional use of shorthand queries (just the `q` value).
 
       iex> Terminus.Bitbus.fetch!(%{
       ...>   find: %{ "out.s2" => "1LtyME6b5AnMopQrBPLk4FGN8UBuhxKqrn" },
@@ -50,11 +54,17 @@ defmodule Terminus do
       ]
 
   ## Using Terminus
-  
-  Terminus can be used as a simple client for crawling and querying Bitbus and
-  Bitsocket APIs, and fetching binary data from BitFS. For simple examples,
-  refer to the `Terminus.Bitbus`, `Terminus.Bitsocket` and `Terminus.BitFS`
-  documentation.
+
+  Terminus can be used as a simple API client, or a turbo-charged, concurrent
+  multi-stream Bitcoin scraper on steroids. You decide.
+
+  The following modules are the primary ways of using Terminus.
+
+  * `Terminus.Bitbus` - functions for crawling and query confirmed Bitcoin transactions.
+  * `Terminus.Bitsocket` - query mempool transactions and listen to realtime transaction events.
+  * `Terminus.BitFS` - fetch binary data blobs embedded in Bitcoin transactions.
+  * `Terminus.Omni` - conveniently fetch confirmed and mempool transactions together.
+  * `Terminus.Planaria` - run Bitcoin scraper processes under your application's supervision tree.
 
   ### Streams
   
@@ -66,6 +76,28 @@ defmodule Terminus do
       ...> |> Stream.each(&save_to_db/1)
       ...> |> Stream.run
       :ok
+  
+  ### Omni
+
+  Sometimes it's necessary to query both confirmed and confirmed transaction
+  simultaneously. This is where `Terminus.Omni` comes in, effectively replicating
+  the functionality of legacy Planaria APIs and returning returning results from
+  Bitbus and Bitsocket in one call.
+
+      iex> Terminus.Omni.fetch(query, token: token)
+      {:ok, %{
+        c: [...], # collection of confirmed tx
+        u: [...]  # collection of mempool tx
+      }}
+
+  You can also easily find a single transaction by its [`txid`](`t:Terminus.txid`)
+  irrespective of whether it is confirmed or not.
+
+      iex> Terminus.Omni.find(txid, token: token)
+      {:ok, %{
+        "tx" => %{"h" => "fca7bdd7658613418c54872212811cf4c5b4f8ee16864eaf70cb1393fb0df6ca"},
+        ...
+      }}
   
   ### Planaria
 

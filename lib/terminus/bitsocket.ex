@@ -27,14 +27,18 @@ defmodule Terminus.Bitsocket do
           "h" => "..."        # Transaction hash
         }
       }
+  
+  Terminus supports both of the Bitsocket public enpoints. The endpoint can be
+  selected by passing the `:host` option to any API method.
+  
+  The available endpoints are:
 
-  Bitsocket offers alternative endpoints for querying documents with inputs and
-  outputs represented using either the [TXO schema](https://bitquery.planaria.network/#/?id=txo)
-  OR the [BOB schema](https://bitquery.planaria.network/#/?id=bob). Terminus
-  defaults to using the TXO endpoint, but the BOB endpoint can be used by
-  specifying the `:host` option.
+  * `:txo` - Query and return transactions in the [Transaction Object](https://bitquery.planaria.network/#/?id=txo) schema. Default.
+  * `:bob` - Query and return transactions in the [Bitcoin OP_RETURN Bytecode](https://bitquery.planaria.network/#/?id=bob) schema.
 
-      Terminus.Bitsocket.listen(query, host: 'bob.bitsocket.network')
+  ```
+  iex> Terminus.Bitsocket.listen(query, host: :bob)
+  ```
 
   ## Usage
 
@@ -65,22 +69,6 @@ defmodule Terminus.Bitsocket do
         },
         ...
       ]}
-
-  ### Endpoints
-
-  Terminus supports both of the Bitsocket public enpoints. The endpoint can be
-  selected by passing the `:host` option to any API method.
-  
-  The available endpoints are:
-
-  * `:txo` - Query and return transactions in the Transaction Object schema. Default.
-  * `:bob` - Query and return transactions in the Bitcoin OP_RETURN Bytecode schema.
-
-      # By default the TXO endpoint is used
-      iex> Terminus.crawl(query, token: token)
-
-      # Optionally use the BOB endpoint
-      iex> Terminus.crawl(query, host: :bob, token: token)
   """
   use Terminus.HTTPStream,
     hosts: [

@@ -119,34 +119,12 @@ defmodule Terminus.BitFS do
 
 
   @doc """
-  Scans the given transaction [`map`](`t:map/0`) and fetches the data for any
-  BitFS URI references.
+  Scans the given transaction [`map`](`t:map/0`), fetches data for any
+  BitFS URI references, and returns a modified [`map`](`t:map/0`) with the data
+  added.
 
-  Handles both `txo` and `bob` schema scripts.
-
-  With `txo`, where a BitFS reference is found, the fetched data is added to the
-  script at the same index as the reference. For example, if a BitFS reference is found
-  at `f4`, that a new attribute `d4` is put into the script containing the data.
-
-  With `bob`, for any cell containing a BitFS reference, a new attribute `d`
-  is added to the cell containing the fetched data.
-
-  ## Examples
-
-      iex> tx = %{
-      ...>   "out" => [%{
-      ...>     "f4" => "13513153d455cdb394ce01b5238f36e180ea33a9ccdf5a9ad83973f2d423684a.out.0.4",
-      ...>     ...
-      ...>   }]
-      ...> }
-      iex> Terminus.BitFS.scan_tx(tx)
-      %{
-        "out" => [%{
-          "f4" => "13513153d455cdb394ce01b5238f36e180ea33a9ccdf5a9ad83973f2d423684a.out.0.4",
-          "d4" => <<...>>,
-          ...
-        }]
-      }
+  The function handles both `txo` and `bob` schema transactions. See the
+  examples for `scan_script/1`.
   """
   @spec scan_tx(map) :: map
   def scan_tx(%{"out" => outputs} = tx) when is_list(outputs) do
@@ -157,40 +135,74 @@ defmodule Terminus.BitFS do
 
 
   @doc """
-  Scans the given transaction script [`map`](`t:map/0`) and fetches the data for
-  any BitFS URI references.
+  Scans the given transaction script [`map`](`t:map/0`), fetches data for any
+  BitFS URI references, and returns a modified [`map`](`t:map/0`) with the data
+  added.
 
   Handles both `txo` and `bob` schema scripts.
-  
-  With `txo`, where a BitFS reference is found, the fetched data is added to the
-  script at the same index as the reference. For example, if a BitFS reference is found
-  at `f4`, that a new attribute `d4` is put into the script containing the data.
 
-  With `bob`, for any cell containing a BitFS reference, a new attribute `d`
-  is added to the cell containing the fetched data.
+  ## Examples
+
+  Where a BitFS reference is found in a `txo` script, the fetched data is added
+  to the script at the same index as the reference. For example, if a BitFS
+  reference is found at `f4`, a new attribute `d4` is put into the script
+  containing the data.
+
+      iex> output = %{
+      ...>   "f4" => "13513153d455cdb394ce01b5238f36e180ea33a9ccdf5a9ad83973f2d423684a.out.0.4",
+      ...>   ...
+      ...> }
+      iex> Terminus.BitFS.scan_script(output)
+      %{
+        "f4" => "13513153d455cdb394ce01b5238f36e180ea33a9ccdf5a9ad83973f2d423684a.out.0.4",
+        "d4" => <<...>>, # binary data added
+        ...
+      }
+  
+  With `bob` scripts, each cell is scanned and where a BitFS reference is found,
+  a new `d` attribute is added to that cell containing the fetched data.
+  
+      iex> output = %{"tape" => [
+      ...>   %{"cell" => %{
+      ...>     "f" => "13513153d455cdb394ce01b5238f36e180ea33a9ccdf5a9ad83973f2d423684a.out.0.4",
+      ...>     ...
+      ...>   }},
+      ...>   ...
+      ...> ]}
+      iex> Terminus.BitFS.scan_script(output)
+      %{"tape" => [
+        %{"cell" => %{
+          "f" => "13513153d455cdb394ce01b5238f36e180ea33a9ccdf5a9ad83973f2d423684a.out.0.4",
+          "d" => <<...>>, # binary data added
+          ...
+        }},
+        ...
+      ]}
   """
   @spec scan_script(map) :: map
   # Handles TXO script
-  def scan_script(%{"len" => len} = out) when is_integer(len) do
-    Map.keys(out)
+  def scan_script(%{"len" => len} = output) when is_integer(len) do
+    Map.keys(output)
     |> Enum.filter(& Regex.match?(~r/^f\d+/, &1))
-    |> Enum.reduce(out, &reduce_txo/2)
+    |> Enum.reduce(output, &reduce_txo/2)
   end
 
   # Handles BOB script
-  def scan_script(%{"tape" => tape} = out) when is_list(tape) do
+  def scan_script(%{"tape" => tape} = output) when is_list(tape) do
     tape = Enum.map(tape, &map_bob_cell/1)
-    put_in(out["tape"], tape)
+    put_in(output["tape"], tape)
   end
 
+
   # Reduce TXO output
-  defp reduce_txo(key, out) do
+  defp reduce_txo(key, output) do
     [_, num] = String.split(key, "f")
-    case fetch(out[key]) do
-      {:ok, data} -> Map.put(out, "d"<>num, data)
-      {:error, _} -> out
+    case fetch(output[key]) do
+      {:ok, data} -> Map.put(output, "d"<>num, data)
+      {:error, _} -> output
     end
   end
+
 
   # Map BOB cell
   defp map_bob_cell(%{"cell" => params} = cell) do
@@ -198,6 +210,7 @@ defmodule Terminus.BitFS do
     |> Enum.filter(& Map.has_key?(&1, "f"))
     |> Enum.reduce(cell, &reduce_bob/2)
   end
+
 
   # Reduce BOB cell
   defp reduce_bob(%{"f" => uri, "i" => i} = params, cell) do
