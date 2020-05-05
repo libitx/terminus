@@ -4,7 +4,7 @@ defmodule Terminus.MixProject do
   def project do
     [
       app: :terminus,
-      version: "0.0.2",
+      version: "0.0.3",
       elixir: "~> 1.10",
       elixirc_paths: elixirc_paths(Mix.env),
       start_permanent: Mix.env() == :prod,
