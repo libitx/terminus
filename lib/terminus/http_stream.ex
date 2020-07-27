@@ -25,7 +25,7 @@ defmodule Terminus.HTTPStream do
           end
         end
       end
-  
+
   """
   alias Terminus.HTTP
 
@@ -46,7 +46,7 @@ defmodule Terminus.HTTPStream do
 
         try do
           apply(HTTPStream, func, [method, host, path, opts])
-        catch    
+        catch
           :exit, {error, _} ->
             {:error, error}
         end
@@ -59,7 +59,7 @@ defmodule Terminus.HTTPStream do
       @doc false
       def normalize_query(query),
         do: HTTPStream.normalize_query(query)
-      
+
       # Gets the host from atom or given binary string
       defp get_host(opts) do
         case Keyword.get(opts, :host) do
@@ -83,8 +83,8 @@ defmodule Terminus.HTTPStream do
   Returns the result in an `:ok` / `:error` tuple pair.
   """
   @spec request(String.t, String.t, String.t, keyword) ::
-  {:ok, Enumerable.t | pid} |
-    {:error, String.t}
+    {:ok, Enumerable.t | pid} |
+    {:error, Exception.t}
   def request(method, host, path, options \\ []) do
     with {:ok, pid} <- HTTP.Client.connect(host, options),
          :ok <- HTTP.Client.request(pid, method, path, options)
@@ -104,7 +104,7 @@ defmodule Terminus.HTTPStream do
   """
   @spec stream(String.t, String.t, String.t, keyword) ::
     {:ok, Enumerable.t | pid} |
-    {:error, String.t}
+    {:error, Exception.t}
   def stream(method, host, path, options \\ []) do
     stage? = Keyword.get(options, :stage, false)
 
@@ -128,10 +128,10 @@ defmodule Terminus.HTTPStream do
   """
   @spec fetch(String.t, String.t, String.t, keyword) ::
     {:ok, Enumerable.t | pid} |
-    {:error, String.t}
+    {:error, Exception.t}
   def fetch(method, host, path, options \\ []) do
     raw? = Keyword.get(options, :decoder, :raw) == :raw
-    
+
     case stream(method, host, path, options) do
       {:ok, stream} ->
         list = Enum.to_list(stream)
@@ -205,7 +205,7 @@ defmodule Terminus.HTTPStream do
 
   defp stringify_keys({k, v}) when is_atom(k),
     do: {Atom.to_string(k), stringify_keys(v)}
-  
+
   defp stringify_keys({k, v}) when is_binary(k),
     do: {k, stringify_keys(v)}
 

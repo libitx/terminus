@@ -67,7 +67,7 @@ defmodule Terminus do
   * `Terminus.Planaria` - run Bitcoin scraper processes under your application's supervision tree.
 
   ### Streams
-  
+
   Most Terminus functions return a streaming `t:Enumerable.t/0` allowing you to
   compose data processing pipelines and operations.
 
@@ -76,7 +76,7 @@ defmodule Terminus do
       ...> |> Stream.each(&save_to_db/1)
       ...> |> Stream.run
       :ok
-  
+
   ### Omni
 
   Sometimes it's necessary to query both confirmed and confirmed transaction
@@ -98,7 +98,7 @@ defmodule Terminus do
         "tx" => %{"h" => "fca7bdd7658613418c54872212811cf4c5b4f8ee16864eaf70cb1393fb0df6ca"},
         ...
       }}
-  
+
   ### Planaria
 
   Using `Terminus.Planaria` inside a module allows you to simply recreate
@@ -152,7 +152,7 @@ defmodule Terminus do
   @type bitfs_uri :: String.t
 
   @typedoc "On-data callback function."
-  @type callback :: function
+  @type callback :: function | nil
 
   @typedoc "Hex-encoded transaction ID."
   @type txid :: function

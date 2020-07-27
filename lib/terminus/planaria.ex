@@ -394,7 +394,7 @@ defmodule Terminus.Planaria do
 
     if is_nil(state.listen_sub),
       do: GenStage.cast(self(), :listen)
-    
+
     {:noreply, [], state}
   end
 

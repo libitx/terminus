@@ -31,7 +31,7 @@ defmodule Terminus.Bitbus do
 
   Terminus supports both of the Bitbus public enpoints. The endpoint can be
   selected by passing the `:host` option to any API method.
-  
+
   The available endpoints are:
 
   * `:txo` - Query and return transactions in the [Transaction Object](https://bitquery.planaria.network/#/?id=txo) schema. Default.
@@ -113,7 +113,7 @@ defmodule Terminus.Bitbus do
       iex> Terminus.Bitbus.crawl(query, token: token)
       {:ok, %Stream{}}
 
-  Optionally the [`pid`](`t:pid/0`) of the GenStage producer can be returned. 
+  Optionally the [`pid`](`t:pid/0`) of the GenStage producer can be returned.
 
       iex> Terminus.Bitbus.crawl(query, token: token, stage: true)
       {:ok, #PID<>}
@@ -223,7 +223,7 @@ defmodule Terminus.Bitbus do
   As `fetch/2` but returns the result or raises an exception if it fails.
   """
   @spec fetch!(Terminus.bitquery, keyword) :: list
-  def fetch!(query, options \\ []) do    
+  def fetch!(query, options \\ []) do
     case fetch(query, options) do
       {:ok, data} ->
         data
@@ -282,5 +282,5 @@ defmodule Terminus.Bitbus do
         raise error
     end
   end
-  
+
 end

@@ -27,10 +27,10 @@ defmodule Terminus.Bitsocket do
           "h" => "..."        # Transaction hash
         }
       }
-  
+
   Terminus supports both of the Bitsocket public enpoints. The endpoint can be
   selected by passing the `:host` option to any API method.
-  
+
   The available endpoints are:
 
   * `:txo` - Query and return transactions in the [Transaction Object](https://bitquery.planaria.network/#/?id=txo) schema. Default.
@@ -115,7 +115,7 @@ defmodule Terminus.Bitsocket do
       iex> Terminus.Bitsocket.crawl(query, token: token)
       {:ok, %Stream{}}
 
-  Optionally the [`pid`](`t:pid/0`) of the GenStage producer can be returned. 
+  Optionally the [`pid`](`t:pid/0`) of the GenStage producer can be returned.
 
       iex> Terminus.Bitsocket.crawl(query, token: token, stage: true)
       {:ok, #PID<>}
@@ -253,7 +253,7 @@ defmodule Terminus.Bitsocket do
 
   As Bitsocket streams transactions using [Server Sent Events](https://en.wikipedia.org/wiki/Server-sent_events),
   the stream will stay open (and blocking) permanently. This is best managed
-  inside a long-running Elixir process.  
+  inside a long-running Elixir process.
 
   ## Options
 
@@ -276,7 +276,7 @@ defmodule Terminus.Bitsocket do
       iex> Terminus.Bitsocket.listen(query, token: token)
       {:ok, %Stream{}}
 
-  Optionally the [`pid`](`t:pid/0`) of the GenStage producer can be returned. 
+  Optionally the [`pid`](`t:pid/0`) of the GenStage producer can be returned.
 
       iex> Terminus.Bitsocket.listen(query, token: token, stage: true)
       {:ok, #PID<>}

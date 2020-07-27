@@ -157,12 +157,12 @@ defmodule Terminus.HTTP.Client do
         params = options
         |> Keyword.take([:decoder, :recycle_after])
         |> Keyword.put(:conn, conn)
-        
+
         {:producer, struct(__MODULE__, params)}
-      
+
       {:error, reason} ->
         {:stop, reason}
-    end    
+    end
   end
 
 
@@ -182,7 +182,7 @@ defmodule Terminus.HTTP.Client do
     case do_request({state.conn, req.method, req.path, req.headers, req.body}, state) do
       {:ok, state} ->
         {:noreply, [], state}
-      
+
       {:error, reason, state} ->
         {:stop, {:error, reason}, state}
     end
@@ -193,7 +193,7 @@ defmodule Terminus.HTTP.Client do
     case do_recycle(state) do
       {:ok, state} ->
         {:noreply, [], state}
-      
+
       {:error, reason, state} ->
         {:stop, {:error, reason}, state}
     end
@@ -211,9 +211,12 @@ defmodule Terminus.HTTP.Client do
         })
         state = update_in(state.recycle_ref, & recycle_timer(&1, state.recycle_after))
         {:ok, state}
-      
-      {:error, reason} ->
-        state = put_in(state.status, 3)
+
+      {:error, conn, reason} ->
+        state = Map.merge(state, %{
+          conn: conn,
+          status: 3
+        })
         {:error, reason, state}
     end
   end
@@ -224,8 +227,9 @@ defmodule Terminus.HTTP.Client do
     case HTTP2.cancel_request(state.conn, state.request_ref) do
       {:ok, conn} ->
         do_request({conn, req.method, req.path, req.headers, req.body}, state)
-      
-      {:error, reason} ->
+
+      {:error, conn, reason} ->
+        state = put_in(state.conn, conn)
         {:error, reason, state}
     end
   end
@@ -240,7 +244,7 @@ defmodule Terminus.HTTP.Client do
   defp put_last_event_id_header(headers, nil), do: headers
   defp put_last_event_id_header(headers, last_event_id),
     do: List.keystore(headers, "last-event-id", 0, {"last-event-id", last_event_id})
-  
+
   # Refreshes the recycle timer
   defp recycle_timer(timer, nil), do: timer
   defp recycle_timer(timer, seconds)
@@ -266,13 +270,13 @@ defmodule Terminus.HTTP.Client do
     case do_recycle(state) do
       {:ok, state} ->
         {:noreply, [], state}
-      
+
       {:error, reason, state} ->
         {:stop, {:error, reason}, state}
     end
   end
 
-  
+
   @impl true
   def handle_info(message, state) do
     case HTTP.stream(state.conn, message) do
@@ -293,26 +297,12 @@ defmodule Terminus.HTTP.Client do
           do: close_connection(state),
           else: {:noreply, events, state}
 
-      {:error, conn, %Mint.HTTPError{}, _responses} ->
+      {:error, conn, _error, _responses} ->
         state = Map.merge(state, %{
           conn: conn,
           status: 2
         })
         close_connection(state)
-    
-      {:error, conn, %Mint.TransportError{}, _responses} ->
-        state = Map.merge(state, %{
-          conn: conn,
-          status: 2
-        })
-        close_connection(state)
-
-      {:error, conn, error, _responses} ->
-        state = Map.merge(state, %{
-          conn: conn,
-          status: 2
-        })
-        {:stop, error, state}
     end
   end
 
@@ -340,7 +330,7 @@ defmodule Terminus.HTTP.Client do
   defp process_response({:done, request_ref}, %__MODULE__{request_ref: ref} = state)
     when request_ref == ref,
     do: put_in(state.status, 2)
-  
+
 
   # Handles decoding of response data chunks
   defp decode_response_data(%__MODULE__{response: response} = state) do

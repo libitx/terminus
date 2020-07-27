@@ -26,10 +26,10 @@ defmodule Terminus.Omni do
         c: [...], # 5 confirmed tx
         u: [...], # 5 unconfirmed tx
       }}
-  
+
   Alterntivly, `find/2` allows for a single transaction to be easily found by
   it's [`txid`](`t:Terminus.txid/0`), irrespective of whether the transaction is
-  confirmed or in the mempool. 
+  confirmed or in the mempool.
 
       iex> Terminus.Omni.find(txid, token: token)
       {:ok, %{
@@ -99,7 +99,7 @@ defmodule Terminus.Omni do
       # Put Bitbus txns directly into results
       {^bb_task, {:ok, {:ok, txns}}}, res ->
         {:cont, Map.put(res, :c, txns)}
-      
+
       # Filter Bitsocket to remove dupes and reinforce the limit
       {^bs_task, {:ok, {:ok, txns}}}, res ->
         confimed_txids = res.c
@@ -108,13 +108,13 @@ defmodule Terminus.Omni do
         |> Enum.reject(& Enum.member?(confimed_txids, &1["tx"]["h"]))
         |> Enum.split(query["q"]["limit"])
         {:cont, Map.put(res, :u, txns)}
-      
+
       {_task, {:ok, {:error, reason}}}, _res ->
         {:halt, {:error, reason}}
-      
+
       {_task, {:error, reason}}, _res ->
         {:halt, {:error, reason}}
-      
+
       {task, nil}, _res ->
         Task.shutdown(task, :brutal_kill)
         {:halt, {:error, %RuntimeError{message: "Fetch request timed out."}}}
@@ -123,7 +123,7 @@ defmodule Terminus.Omni do
     case result do
       {:error, reason} ->
         {:error, reason}
-      
+
       result ->
         {:ok, result}
     end
@@ -165,7 +165,7 @@ defmodule Terminus.Omni do
         ...
       }}
   """
-  @spec find(Terminus.txid, keyword) :: map  
+  @spec find(Terminus.txid, keyword) :: {:ok, map} | {:error, Exception.t}
   def find(txid, options \\ []) do
     query = %{
       "find" => %{"tx.h" => txid},
@@ -217,7 +217,7 @@ defmodule Terminus.Omni do
     |> update_in(["q", "find"], & Map.put(&1, "timestamp", %{"$gt" => ts}))
     |> update_in(["q", "limit"], & &1 * 2)
     |> update_in(["q", "sort"], &default_bitsocket_sort/1)
-    
+
     Task.async(Terminus.Bitsocket, :fetch, [query, options])
   end
 
