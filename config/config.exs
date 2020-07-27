@@ -5,7 +5,8 @@ case Mix.env do
     config :logger, level: :error
     config :terminus, scheme: :http, port: 8088
   :dev ->
-    config :logger, level: :info
+    #config :logger, level: :info
+    true
   _ ->
     true
 end

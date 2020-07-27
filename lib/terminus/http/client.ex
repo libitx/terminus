@@ -265,7 +265,7 @@ defmodule Terminus.HTTP.Client do
 
   @impl true
   def handle_info(:recycle_request, state) do
-    Logger.info "Recycling #{__MODULE__}: #{ inspect state.request_ref }"
+    Logger.info "Recycling #{__MODULE__}: #{state.conn.hostname} #{ inspect state.request_ref }"
 
     case do_recycle(state) do
       {:ok, state} ->
@@ -274,6 +274,12 @@ defmodule Terminus.HTTP.Client do
       {:error, reason, state} ->
         {:stop, {:error, reason}, state}
     end
+  end
+
+
+  @impl true
+  def handle_info(:terminate_request, state) do
+    close_connection(state)
   end
 
 
@@ -292,10 +298,10 @@ defmodule Terminus.HTTP.Client do
         |> decode_response_data
         |> take_demanded_events
 
-        if Enum.empty?(events)
-          and (state.status == 2 or state.conn.state == :closed),
-          do: close_connection(state),
-          else: {:noreply, events, state}
+        if (state.status == 2 or state.conn.state == :closed),
+          do: Process.send(self(), :terminate_request, [])
+
+        {:noreply, events, state}
 
       {:error, conn, _error, _responses} ->
         state = Map.merge(state, %{
@@ -366,7 +372,7 @@ defmodule Terminus.HTTP.Client do
 
   @impl true
   def terminate(reason, state) do
-    Logger.debug("Terminating #{__MODULE__} #{inspect reason}")
+    Logger.debug("Terminating #{__MODULE__}: #{state.conn.hostname} #{inspect reason}")
     HTTP.close(state.conn)
   end
 
