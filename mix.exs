@@ -24,7 +24,7 @@ defmodule Terminus.MixProject do
       ],
       package: [
         name: "terminus",
-        files: ~w(lib .formatter.exs mix.exs README.md LICENSE.md),
+        files: ~w(lib .formatter.exs mix.exs README.md LICENSE),
         licenses: ["MIT"],
         links: %{
           "GitHub" => "https://github.com/libitx/terminus"
