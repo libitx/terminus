@@ -2,10 +2,6 @@ defmodule Terminus do
   @moduledoc """
   ![Terminus - Crawl and subscribe to Bitcoin transaction events using Bitbus, Bitsocket and BitFS.](https://github.com/libitx/terminus/raw/master/media/poster.jpg)
 
-  ![Hex.pm](https://img.shields.io/hexpm/v/terminus?color=informational)
-  ![GitHub](https://img.shields.io/github/license/libitx/terminus?color=informational)
-  ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/libitx/terminus/Elixir%20CI)
-
   Terminus allows you to crawl and subscribe to Bitcoin transaction events and
   download binary data from transactions, using a combination of
   [Bitbus](https://bitbus.network) and [Bitsocket](https://bitsocket.network),

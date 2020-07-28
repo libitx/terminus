@@ -3,8 +3,8 @@
 ![Terminus - Crawl and subscribe to Bitcoin transaction events using Bitbus, Bitsocket and BitFS.](https://github.com/libitx/terminus/raw/master/media/poster.jpg)
 
 ![Hex.pm](https://img.shields.io/hexpm/v/terminus?color=informational)
-![GitHub](https://img.shields.io/github/license/libitx/terminus?color=informational)
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/libitx/terminus/Elixir%20CI)
+![License](https://img.shields.io/github/license/libitx/terminus?color=informational)
+![Build Status](https://img.shields.io/github/workflow/status/libitx/terminus/Elixir%20CI)
 
 Terminus allows you to crawl and subscribe to Bitcoin transaction events and download binary data from transactions, using a combination of [Bitbus](https://bitbus.network) and [Bitsocket](https://bitsocket.network), and [BitFS](https://bitfs.network).
 
@@ -19,7 +19,7 @@ The package can be installed by adding `terminus` to your list of dependencies i
 ```elixir
 def deps do
   [
-    {:terminus, "~> 0.0.3"}
+    {:terminus, "~> 0.1"}
   ]
 end
 ```
@@ -38,6 +38,6 @@ The following documented modules, are the primary ways of using Terminus.
 
 ## License
 
-[MIT License](https://github.com/libitx/terminus/blob/master/LICENSE.md).
+Terminus is open source and released under the [Apache-2 License](https://github.com/libitx/terminus/blob/master/LICENSE).
 
-© Copyright 2020 libitx.
+© Copyright 2020 Chronos Labs Ltd.
