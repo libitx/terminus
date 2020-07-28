@@ -175,7 +175,7 @@ defmodule Terminus.Planaria do
 
   Persist the `:head` after each crawl of new blocks.
 
-      def handle_tape(:block, tape) do
+      def handle_tape(:update, tape) do
         MyApp.Config.put("tape_head", tape.head)
       end
   """
@@ -339,6 +339,8 @@ defmodule Terminus.Planaria do
             GenStage.cast(self(), :crawl)
           is_nil(state.listen_sub) ->
             GenStage.cast(self(), :listen)
+          true ->
+            # Continue
         end
 
         Process.send_after(self(), :status, config.poll * 1000)

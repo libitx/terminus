@@ -78,7 +78,7 @@ defmodule Terminus.BitFS do
       iex> Terminus.BitFS.fetch(uri, stream: true)
       {:ok, %Stream{}}
 
-  Or the [`pid`](`t:pid/0`) of the GenStage producer can be returned. 
+  Or the [`pid`](`t:pid/0`) of the GenStage producer can be returned.
 
       iex> Terminus.BitFS.fetch(uri, stage: true)
       {:ok, #PID<>}
@@ -96,7 +96,7 @@ defmodule Terminus.BitFS do
     case Keyword.get(options, :stream, false) do
       true ->
         request(:stream, "GET", path, options)
-      
+
       _ ->
         request(:fetch, "GET", path, options)
     end
@@ -158,10 +158,10 @@ defmodule Terminus.BitFS do
         "d4" => <<...>>, # binary data added
         ...
       }
-  
+
   With `bob` scripts, each cell is scanned and where a BitFS reference is found,
   a new `d` attribute is added to that cell containing the fetched data.
-  
+
       iex> output = %{"tape" => [
       ...>   %{"cell" => %{
       ...>     "f" => "13513153d455cdb394ce01b5238f36e180ea33a9ccdf5a9ad83973f2d423684a.out.0.4",
@@ -218,7 +218,7 @@ defmodule Terminus.BitFS do
       {:ok, data} -> Map.put(params, "d", data)
       {:error, _} -> params
     end
-    List.replace_at(cell["cell"], i, params)
+    update_in(cell["cell"], & List.replace_at(&1, i, params))
   end
 
 end
