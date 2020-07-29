@@ -21,7 +21,7 @@ defmodule Terminus.Planaria do
           }
         }
 
-        use Terminus.Planaria, token: Application.get_env(:my_app, :token),
+        use Terminus.Planaria, token: {:my_app, :planaria_token},
                                from: 600000,
                                query: @query
 

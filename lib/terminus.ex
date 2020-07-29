@@ -28,6 +28,12 @@ defmodule Terminus do
 
   **[Get your Planaria Token](https://token.planaria.network).**
 
+  Where a token is given as a tuple pair in the format, `{app, key}`, Terminus
+  will fetch the token at runtime using `Application.get_env(app, key)`.callback()
+
+      iex> Terminus.Omni.find(txid, token: {:my_app, :planaria_token})
+      {:ok, %{...}}
+
   ### Query language
 
   Both Bitbus and Bitsocket use the same MongoDB-like query language, known as
@@ -111,7 +117,7 @@ defmodule Terminus do
           }
         }
 
-        use Terminus.Planaria, token: Application.get_env(:my_app, :token),
+        use Terminus.Planaria, token: {:my_app, :planaria_token},
                                from: 600000,
                                query: @query
 
