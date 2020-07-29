@@ -46,6 +46,12 @@ defmodule Terminus.BitbusTest do
       assert length(res) == 5
     end
 
+    test "token can be a tuple pair which fetches using Application.get_env/3" do
+      {:ok, res} = Bitbus.fetch(%{"q" => "test"}, token: {:terminus, :token}, host: @host)
+      assert is_list(res)
+      assert length(res) == 5
+    end
+
     @tag capture_log: true
     test "must return an error when no token" do
       {:error, reason} = Bitbus.fetch(%{"q" => "test"}, host: @host)
@@ -90,5 +96,5 @@ defmodule Terminus.BitbusTest do
       assert Map.keys(res) |> Enum.member?("time")
     end
   end
-  
+
 end

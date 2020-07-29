@@ -237,7 +237,9 @@ defmodule Terminus.HTTP.Client do
 
   # Puts the token into the headers
   defp put_token_header(headers, nil), do: headers
-  defp put_token_header(headers, token),
+  defp put_token_header(headers, {app, key}),
+    do: put_token_header(headers, Application.get_env(app, key))
+  defp put_token_header(headers, token) when is_binary(token),
     do: List.keystore(headers, "token", 0, {"token", token})
 
   # Puts the Last Event ID into the headers

@@ -3,9 +3,11 @@ use Mix.Config
 case Mix.env do
   :test ->
     config :logger, level: :error
-    config :terminus, scheme: :http, port: 8088
-  :dev ->
-    config :logger, level: :info
+    config :terminus,
+      scheme: :http,
+      port: 8088,
+      token: "test"
+
   _ ->
-    true
+    config :logger, level: :info
 end

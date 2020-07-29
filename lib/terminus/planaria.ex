@@ -340,7 +340,7 @@ defmodule Terminus.Planaria do
           is_nil(state.listen_sub) ->
             GenStage.cast(self(), :listen)
           true ->
-            # Continue
+            true
         end
 
         Process.send_after(self(), :status, config.poll * 1000)
