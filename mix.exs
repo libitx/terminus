@@ -37,7 +37,7 @@ defmodule Terminus.MixProject do
   def application do
     [
       applications: applications(Mix.env),
-      extra_applications: [:logger]
+      extra_applications: [:logger, :gen_stage, :mint, :castore]
     ]
   end
 
