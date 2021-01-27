@@ -1,6 +1,6 @@
 # Terminus
 
-![Terminus - Crawl and subscribe to Bitcoin transaction events using Bitbus, Bitsocket and BitFS.](https://github.com/libitx/terminus/raw/master/media/poster.jpg)
+![Terminus - Crawl and subscribe to Bitcoin transaction events using Bitbus, Bitsocket and BitFS.](https://github.com/libitx/terminus/raw/master/media/poster.png)
 
 ![Hex.pm](https://img.shields.io/hexpm/v/terminus?color=informational)
 ![License](https://img.shields.io/github/license/libitx/terminus?color=informational)

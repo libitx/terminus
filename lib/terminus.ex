@@ -1,6 +1,6 @@
 defmodule Terminus do
   @moduledoc """
-  ![Terminus - Crawl and subscribe to Bitcoin transaction events using Bitbus, Bitsocket and BitFS.](https://github.com/libitx/terminus/raw/master/media/poster.jpg)
+  ![Terminus - Crawl and subscribe to Bitcoin transaction events using Bitbus, Bitsocket and BitFS.](https://github.com/libitx/terminus/raw/master/media/poster.png)
 
   Terminus allows you to crawl and subscribe to Bitcoin transaction events and
   download binary data from transactions, using a combination of
